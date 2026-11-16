@@ -64,11 +64,7 @@ internal sealed class RulesSection : SettingsSectionView
 
         public bool Changed => On != DefaultOn || (On && Current != DefaultTier);
 
-        /// <summary>The override for a switch and tier: null when they equal the default.</summary>
-        public string? ValueFor(bool on, Tier tier) =>
-            !on ? (DefaultOn ? RuleCatalog.IgnoreValue : null)
-            : DefaultOn && tier == DefaultTier ? null
-            : tier.ToString();
+        public string? ValueFor(bool on, Tier tier) => OverrideFor(DefaultOn, DefaultTier, on, tier);
     }
 
     /// <summary>Harness hook: the info bar under a rule, as after a change.</summary>
@@ -154,13 +150,23 @@ internal sealed class RulesSection : SettingsSectionView
         }
     }
 
-    private static (bool On, Tier Tier) State(RuleRow row, IReadOnlyDictionary<string, string> overrides)
+    private static (bool On, Tier Tier) State(RuleRow row, IReadOnlyDictionary<string, string> overrides) =>
+        StateFor(row.DefaultOn, row.DefaultTier, overrides.TryGetValue(row.Id, out string? value) ? value : null);
+
+    /// <summary>The settings value for a rule's switch and tier: null when both equal the rule's default.</summary>
+    internal static string? OverrideFor(bool defaultOn, Tier defaultTier, bool on, Tier tier) =>
+        !on ? (defaultOn ? RuleCatalog.IgnoreValue : null)
+        : defaultOn && tier == defaultTier ? null
+        : tier.ToString();
+
+    /// <summary>The switch and tier a rule shows for its override (an unknown value shows the default).</summary>
+    internal static (bool On, Tier Tier) StateFor(bool defaultOn, Tier defaultTier, string? value)
     {
-        if (overrides.TryGetValue(row.Id, out string? value))
+        if (value is not null)
         {
             if (value.Equals(RuleCatalog.IgnoreValue, StringComparison.OrdinalIgnoreCase))
             {
-                return (false, row.DefaultTier);
+                return (false, defaultTier);
             }
 
             if (Enum.TryParse(value, ignoreCase: true, out Tier chosen) && Enum.IsDefined(chosen))
@@ -169,7 +175,7 @@ internal sealed class RulesSection : SettingsSectionView
             }
         }
 
-        return (row.DefaultOn, row.DefaultTier);
+        return (defaultOn, defaultTier);
     }
 
     private RuleRow CreateRow(string id, string title, ErrorKind kind, string source, bool defaultOn, Tier defaultTier)
