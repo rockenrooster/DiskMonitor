@@ -146,7 +146,8 @@ internal sealed class RulesSection : SettingsSectionView
         }
 
         // "n events are back" is only known once the history has been read again.
-        if (_pendingBack is { } id && (reasons & RefreshReason.Events) != 0 && !Services.Monitor.IsLoading)
+        // The store changes while the reload still runs; the monitor's status change follows when it ends.
+        if (_pendingBack is { } id && (reasons & (RefreshReason.Events | RefreshReason.Monitor)) != 0 && !Services.Monitor.IsLoading)
         {
             _pendingBack = null;
             SetInfo(id, Strings.RuleBack(CountEvents(id)));
