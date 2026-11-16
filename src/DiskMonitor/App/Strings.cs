@@ -611,6 +611,162 @@ internal static class Strings
     public static readonly string[] CsvColumns = ["Time", "Tier", "Kind", "Title", "Device", "Volume", "Disk", "Log", "Source", "EventId", "RecordId", "Rule", "Message"];
 
     // ---------------------------------------------------------------------------------------------
+    // Drives (subplan 06)
+    // ---------------------------------------------------------------------------------------------
+
+    public const string CheckNow = "Check now";
+    public const string LookingForDrives = "Looking for drives";
+
+    public static string FactFirmware(string firmware) => $"Firmware {firmware}";
+
+    public static string FactSerial(string serial) => $"Serial {serial}";
+
+    public const string NoHealthData = "This drive does not report health data over this connection. That is normal for USB enclosures and virtual disks.";
+
+    public static string Asleep(DateTime utc) => $"Asleep. Showing the reading from {Format.RecentDate(utc, inSentence: true)}.";
+
+    public const string ColumnVolume = "VOLUME";
+    public const string ColumnFileSystem = "FILE SYSTEM";
+    public const string ColumnSpace = "SPACE";
+    public const string ColumnFree = "FREE";
+    public const string ColumnSize = "SIZE";
+    public const string ColumnLastScan = "LAST SCAN";
+    public const string NeedsCheck = "Needs check";
+
+    public static string FreeOf(long free, long total) => $"{Format.Size(free)} free of {Format.Size(total)}";
+
+    public const string ScanEllipsis = "Scan…";
+
+    public static string HealthChecked(DateTime utc) => $"Health checked {Format.RecentDate(utc, inSentence: true)}";
+
+    public static string EventsInLastDays(int n, int days) => $"{Events(n)} in the last {days} days";
+
+    public const string TileTemperature = "TEMPERATURE";
+    public const string TileLife = "LIFE REMAINING";
+    public const string TilePowerOn = "POWER-ON TIME";
+    public const string TileCycles = "POWER CYCLES";
+    public const string TileWritten = "DATA WRITTEN";
+    public const string TileRead = "DATA READ";
+    public const string TileReallocated = "REALLOCATED";
+    public const string TilePending = "PENDING";
+    public const string TileUncorrectable = "UNCORRECTABLE";
+    public const string TileCrc = "CRC ERRORS";
+    public const string TileMedia = "MEDIA ERRORS";
+    public const string TileUnsafe = "UNSAFE SHUTDOWNS";
+    public const string TileSpare = "SPARE CAPACITY";
+    public const string TipTemperature = "The drive's own temperature sensor.";
+    public const string TipLife = "How much of its rated write endurance an SSD has left.";
+    public const string TipPowerOn = "Total time the drive has been powered on.";
+    public const string TipCycles = "How many times the drive has been switched on.";
+    public const string TipWritten = "Total data written over the drive's life.";
+    public const string TipRead = "Total data read over the drive's life.";
+    public const string TipReallocated = "Damaged spots the drive replaced with spares. A rising count means the surface is wearing.";
+    public const string TipPending = "Sectors the drive could not read reliably and is waiting to replace.";
+    public const string TipUncorrectable = "Sectors whose data the drive could not recover.";
+    public const string TipCrc = "Transfer errors between the drive and the computer, usually caused by a cable.";
+    public const string TipMedia = "Data the drive could not recover from its flash memory.";
+    public const string TipUnsafe = "Times power was lost without the drive being told first.";
+    public const string TipSpare = "Reserve flash the drive uses to replace worn blocks.";
+
+    // ---------------------------------------------------------------------------------------------
+    // Check Disk (subplan 07)
+    // ---------------------------------------------------------------------------------------------
+
+    public const string ScanAll = "Scan all";
+    public const string ScanAlreadyRunning = "A scan is already running";
+
+    public static string OfferDamage(string volume, DateTime utc) => $"Windows reported file system damage on {volume} {Format.RecentDate(utc, inSentence: true)}.";
+
+    public static string OfferAsk(string volume) => $"Scan {volume} for file system errors?";
+
+    public static string OfferAction(string volume) => $"Scan {volume}";
+
+    public const string CardVolumes = "VOLUMES";
+    public const string CardScan = "SCAN";
+    public const string CardProactive = "PROACTIVE PROTECTION";
+    public const string WindowsSuffix = " · Windows";
+    public const string WindowsVolumeUnlabelled = "Windows";
+
+    public static string ScanningPercent(int? percent) => percent is { } p ? $"Scanning… {p}%" : "Scanning…";
+
+    public const string PillClean = "Clean";
+    public const string PillProblems = "Problems found";
+    public const string PillCouldNotRun = "Could not run";
+    public const string NeverScanned = "Never scanned";
+    public const string RefsRepairsItself = "ReFS repairs itself";
+    public const string MenuScanReadOnly = "Scan (read-only)";
+    public const string MenuSpotFix = "Spot fix…";
+    public const string MenuRepair = "Repair…";
+    public const string MenuRepairRecover = "Repair and scan for bad sectors…";
+    public const string SpotFixNeedsNtfs = "Spot fix needs NTFS";
+    public const string HintAdmin = "Running as administrator: no prompts.";
+    public const string HintTask = "Scans start without a prompt.";
+    public const string HintPrompt = "Each scan asks for administrator approval.";
+    public const string NoScanRunning = "No scan is running";
+
+    public static string LastScanSentence(DateTime utc) => $"Last scan {Format.RecentDate(utc, inSentence: true)}.";
+
+    public const string NoVolumeScanned = "No volume has been scanned yet.";
+    public const string WaitingApprovalHeading = "Waiting for administrator approval…";
+
+    public static string RunHeading(string volume, bool repair) => repair ? $"Repairing {volume}" : $"Scanning {volume}";
+
+    public static string RunSubline(Core.Chkdsk.ChkdskMode mode, DateTime startedUtc, Core.Chkdsk.ScanTrigger trigger)
+    {
+        string kind = mode == Core.Chkdsk.ChkdskMode.Scan ? "Read-only" : ModeName(mode);
+        string by = trigger switch
+        {
+            Core.Chkdsk.ScanTrigger.FileSystemError => "started after a file system error",
+            Core.Chkdsk.ScanTrigger.Routine => "routine scan",
+            _ => "started by you"
+        };
+        return $"{kind}{Separator}started {Format.TimeOfDay(startedUtc)}{Separator}{by}";
+    }
+
+    public const string TimeLeft = "Time left";
+    public const string Estimating = "Estimating…";
+    public const string CopyOutput = "Copy output";
+    public const string ConsoleEmpty = "CHKDSK's output appears here as it runs.";
+
+    public static string RepairTitle(string volume) => $"Repair {volume}?";
+
+    public const string RepairSpotFixText = "Spot fix repairs only what the last scan recorded. It usually takes seconds.";
+    public const string RepairFixText = "A full repair checks and fixes the whole file system. The volume is unavailable while it runs.";
+    public const string RepairRecoverText = "This also reads every sector to find bad ones. On a large drive it can take many hours, and it adds load to a drive that may already be failing. Back up important data first.";
+
+    public static string RepairWindowsText(string volume) => $"{volume} holds Windows, so the repair runs the next time the PC restarts.";
+
+    public const string RepairOtherText = "If the volume is in use, Disk Monitor does not force it offline. The repair waits for the next restart instead.";
+    public const string RepairApproval = "Administrator approval is required.";
+
+    public static string RepairConfirm(string volume) => $"Repair {volume}";
+
+    public const string RepairSchedule = "Schedule repair";
+    public const string Cancel = "Cancel";
+    public const string ProactiveIntro = "Let Disk Monitor look for file system damage before it grows.";
+    public const string ProactiveAutoLabel = "Scan after a file system error";
+    public const string ProactiveAutoHelp = "Read-only, at most once a day per volume";
+    public const string ProactiveRoutineLabel = "Routine scan";
+    public const string ProactiveRoutineHelp = "Every fixed NTFS volume, only when plugged in";
+
+    public static string ProactiveNext(DateTime? utc) => utc is { } next && next > Clock.UtcNow ? $"Next: {Format.RecentDate(next, inSentence: false)}" : "Next: due now";
+
+    public const string RoutineOff = "Off";
+    public const string RoutineWeekly = "Weekly";
+    public const string RoutineMonthly = "Monthly";
+    public const string ProactiveCleanLabel = "Tell me when a scan is clean";
+    public const string ProactiveCleanHelp = "For scans Disk Monitor starts on its own";
+    public const string ProactivePerfLabel = "Use more system resources";
+    public const string ProactivePerfHelp = "Finishes sooner; the PC may feel slower";
+    public const string ProactiveTaskLabel = "Start scans without a prompt";
+    public const string ProactiveTaskInstalled = "Read-only scans only. Repairs always ask.";
+    public const string ProactiveTaskPortable = "Available in the installed version";
+    public const string ProactiveTaskElevated = "Not needed while running as administrator";
+    public const string ProactiveAsks = "Automatic scans ask before they run.";
+    public const string NothingChanged = "Nothing changed";
+    public const string ApprovalDeclined = "Administrator approval was declined.";
+
+    // ---------------------------------------------------------------------------------------------
     // Updates (subplan 08, Updates)
     // ---------------------------------------------------------------------------------------------
 

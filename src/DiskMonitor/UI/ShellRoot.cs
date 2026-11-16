@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using DiskMonitor.App;
 using DiskMonitor.Core;
 using DiskMonitor.Core.Chkdsk;
@@ -236,15 +235,7 @@ internal sealed class ShellRoot : KitControl
             else
             {
                 _stripPercent = _services.Chkdsk.ProgressPercent;
-                TimeSpan? left = null;
-                Match eta = MainForm.EtaPattern().Match(_services.Chkdsk.ProgressText);
-                if (eta.Success)
-                {
-                    left = new TimeSpan(int.Parse(eta.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture),
-                        int.Parse(eta.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture),
-                        int.Parse(eta.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture));
-                }
-
+                TimeSpan? left = MainForm.TimeLeft(_services.Chkdsk.ProgressText);
                 bool repair = !_services.Chkdsk.RunningMode.IsReadOnly();
                 _stripText = Strings.StripScanning(volume, _stripPercent, left, repair, narrow);
                 stop = !repair;
@@ -443,18 +434,19 @@ internal sealed class ShellRoot : KitControl
         }
     }
 
-    private void OnStopClick(object? sender, EventArgs e)
+    private void OnStopClick(object? sender, EventArgs e) => ConfirmStop(_form, _services.Chkdsk);
+
+    /// <summary>Asks before stopping a read-only scan (subplan 03); used by the status strip and the Check Disk page.</summary>
+    internal static void ConfirmStop(Form owner, ChkdskService chkdsk)
     {
-        KitDialog dialog = new KitDialog(Strings.StopDialogTitle, 480, cancelResult: 0)
+        using KitDialog dialog = new KitDialog(Strings.StopDialogTitle, 480, cancelResult: 0)
             .Paragraph(Strings.StopDialogText)
             .Button(new DialogButton(Strings.StopDialogCancel, ButtonVariant.Secondary, 0))
             .Button(new DialogButton(Strings.StopDialogConfirm, ButtonVariant.Primary, 1, InitialFocus: true));
-        if (dialog.ShowOver(_form) == 1)
+        if (dialog.ShowOver(owner) == 1)
         {
-            _services.Chkdsk.Cancel();
+            chkdsk.Cancel();
         }
-
-        dialog.Dispose();
     }
 
     protected override void Dispose(bool disposing)

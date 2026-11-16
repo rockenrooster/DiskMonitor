@@ -150,12 +150,12 @@ internal static class ScreenRenderer
         Screens.Insert(2, ("icons", new Size(1280, 852), dpi => ReferenceSheets.Icons(dpi)));
         Screens.Insert(3, ("gallery-disk-monitor", new Size(1280, 900), dpi => ReferenceSheets.Gallery(dpi)));
         UI.Pages.PageRegistry.Register();
-        foreach ((string name, string page, Size size, Action<UI.MainForm>? setup) in PageScreens)
+        foreach ((string name, string page, Size size, Action<UI.MainForm>? setup, Action<App.AppServices>? prepare) in PageScreens)
         {
-            Screens.Add((name, size, dpi => RenderWindow(page, size, dpi, setup, fullHeight: false)));
+            Screens.Add((name, size, dpi => RenderWindow(page, size, dpi, setup, fullHeight: false, prepare)));
             if (name is "overview" or "drives" or "settings")
             {
-                Screens.Add((name + "-full", size, dpi => RenderWindow(page, size, dpi, setup, fullHeight: true)));
+                Screens.Add((name + "-full", size, dpi => RenderWindow(page, size, dpi, setup, fullHeight: true, prepare)));
             }
         }
 
@@ -165,17 +165,26 @@ internal static class ScreenRenderer
         }
     }
 
-    /// <summary>Page screens (name, page key, logical window size, setup applied after the page is shown).</summary>
-    public static readonly List<(string Name, string Page, Size Size, Action<UI.MainForm>? Setup)> PageScreens =
+    /// <summary>
+    /// Page screens: name, page key, logical window size, setup applied after the page is shown, and
+    /// preparation of the demo services before the window is built.
+    /// </summary>
+    public static readonly List<(string Name, string Page, Size Size, Action<UI.MainForm>? Setup, Action<App.AppServices>? Prepare)> PageScreens =
     [
-        ("overview", "Overview", new Size(1280, 800), null),
-        ("events", "Events", new Size(1280, 800), null),
-        ("events-drawer", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewDrawer()),
-        ("events-selection", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewSelection(3)),
-        ("events-empty-filters", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewNoMatch()),
-        ("drives", "Drives", new Size(1280, 800), null),
-        ("checkdisk", "CheckDisk", new Size(1280, 800), null),
-        ("settings", "Settings", new Size(1280, 800), null)
+        ("overview", "Overview", new Size(1280, 800), null, null),
+        ("events", "Events", new Size(1280, 800), null, null),
+        ("events-drawer", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewDrawer(), null),
+        ("events-selection", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewSelection(3), null),
+        ("events-empty-filters", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewNoMatch(), null),
+        ("drives", "Drives", new Size(1280, 800), null, null),
+        ("checkdisk", "CheckDisk", new Size(1280, 800), null, null),
+        ("checkdisk-running", "CheckDisk", new Size(1280, 800), null, DemoData.ScanRunning),
+        ("checkdisk-clean", "CheckDisk", new Size(1280, 800), null, s => DemoData.ScanFinished(s, Core.Chkdsk.ChkdskOutcome.Clean)),
+        ("checkdisk-problems", "CheckDisk", new Size(1280, 800), null, s => { DemoData.AddRefsVolume(s); DemoData.ScanFinished(s, Core.Chkdsk.ChkdskOutcome.Problems); }),
+        ("checkdisk-error", "CheckDisk", new Size(1280, 800), null, s => DemoData.ScanFinished(s, Core.Chkdsk.ChkdskOutcome.Failed)),
+        ("checkdisk-offer", "CheckDisk", new Size(1280, 800), form => form.ShowCheckDisk("D:", new UI.Pages.ScanOfferReason(Core.Clock.UtcNow - TimeSpan.FromHours(2))), null),
+        ("checkdisk-narrow", "CheckDisk", new Size(1000, 800), null, DemoData.ScanRunning),
+        ("settings", "Settings", new Size(1280, 800), null, null)
     ];
 
     /// <summary>Renders the main window off-screen with demo data, on a page, at a logical size.</summary>

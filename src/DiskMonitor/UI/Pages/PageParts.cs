@@ -56,6 +56,12 @@ internal sealed class TargetCard : Card
 
     public void AddTarget(CardTarget target) => _targets.Add(target);
 
+    /// <summary>Handles a key before the card's own target navigation; returns true when it handled it.</summary>
+    public Func<Keys, bool>? KeyOverride { get; set; }
+
+    /// <summary>Puts the keyboard focus on a target (a table whose rows are a single selection keeps the two together).</summary>
+    public void SetFocusTarget(int index) => _focus = index;
+
     public void SetKeyboardTargets(bool enabled)
     {
         TabStop = enabled || _whole is not null;
@@ -116,6 +122,12 @@ internal sealed class TargetCard : Card
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (KeyOverride?.Invoke(e.KeyCode) == true)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_whole is null && _targets.Count > 0)
         {
             switch (e.KeyCode)

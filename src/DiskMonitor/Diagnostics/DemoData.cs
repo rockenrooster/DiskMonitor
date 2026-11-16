@@ -168,6 +168,105 @@ internal static class DemoData
         return new DriveSnapshot(nowUtc - TimeSpan.FromMinutes(12), disks.Select(disk => DriveScanner.Evaluate(disk, temperatureWarningC)).ToList(), [c, d, e, f]);
     }
 
+    /// <summary>CHKDSK's first lines for a read-only scan of the demo Windows volume (invented figures).</summary>
+    private static readonly string[] ScanOutputStart =
+    [
+        "The type of the file system is NTFS.",
+        "Volume label is Windows.",
+        "",
+        "Stage 1: Examining basic file system structure ...",
+        "  1249856 file records processed.",
+        "File verification completed.",
+        " Phase duration (File record verification): 7.81 seconds.",
+        "  8412 large file records processed.",
+        " Phase duration (Orphan file record recovery): 0.00 milliseconds.",
+        "  0 bad file records processed.",
+        " Phase duration (Bad file record checking): 1.12 milliseconds.",
+        "",
+        "Stage 2: Examining file name linkage ...",
+        "  2241 reparse records processed.",
+        "  1612904 index entries processed.",
+        "Index verification completed.",
+        " Phase duration (Index verification): 21.40 seconds."
+    ];
+
+    private static readonly string[] ScanOutputClean =
+    [
+        .. ScanOutputStart,
+        "",
+        "Stage 3: Examining security descriptors ...",
+        "Security descriptor verification completed.",
+        " Phase duration (Security descriptor verification): 1.05 seconds.",
+        "  186524 data files processed.",
+        "CHKDSK is verifying Usn Journal...",
+        "  41247176 USN bytes processed.",
+        "Usn Journal verification completed.",
+        "",
+        "Windows has scanned the file system and found no problems.",
+        "No further action is required."
+    ];
+
+    private static readonly string[] ScanOutputProblems =
+    [
+        "The type of the file system is NTFS.",
+        "Volume label is Media.",
+        "",
+        "Stage 1: Examining basic file system structure ...",
+        "  402118 file records processed.",
+        "File verification completed.",
+        "",
+        "Stage 2: Examining file name linkage ...",
+        "Found corrupt index entry for file 0x2b1f in index $I30 of directory 0x5 \"\\\".",
+        "  508214 index entries processed.",
+        "Index verification completed.",
+        "",
+        "Stage 3: Examining security descriptors ...",
+        "Security descriptor verification completed.",
+        "",
+        "Windows has scanned the file system and found problems.",
+        "Run CHKDSK with the /spotfix option to fix them."
+    ];
+
+    private static readonly string[] ScanOutputStopped =
+    [
+        "The type of the file system is NTFS.",
+        "Volume label is Projects.",
+        "",
+        "Stage 1: Examining basic file system structure ..."
+    ];
+
+    /// <summary>A read-only scan of C: in progress, started four minutes ago (Check Disk screens).</summary>
+    public static void ScanRunning(AppServices services) =>
+        services.Chkdsk.LoadPreview("C: /scan", ScanOutputStart, 41, null,
+            "Progress: 512340 of 1249856 done; Stage: 41%; Total: 41%; ETA:   0:03:12", Clock.UtcNow - TimeSpan.FromMinutes(4));
+
+    /// <summary>A finished run this session, with the outcome's output and result (Check Disk screens).</summary>
+    public static void ScanFinished(AppServices services, Core.Chkdsk.ChkdskOutcome outcome)
+    {
+        DateTime started = Clock.UtcNow - TimeSpan.FromMinutes(9);
+        (string volume, string[] output, int exitCode, string summary, string? error) = outcome switch
+        {
+            Core.Chkdsk.ChkdskOutcome.Clean => ("C:", ScanOutputClean, 0, Strings.SummaryScanClean, (string?)null),
+            Core.Chkdsk.ChkdskOutcome.Problems => ("D:", ScanOutputProblems, 3, Strings.SummaryScanProblems, null),
+            _ => ("E:", ScanOutputStopped, -1, "", Strings.ErrorHelperStopped)
+        };
+        Core.Chkdsk.ChkdskResult result = new(volume, Core.Chkdsk.ChkdskMode.Scan, exitCode, outcome == Core.Chkdsk.ChkdskOutcome.Clean, false, false, summary, error)
+        {
+            Outcome = outcome,
+            Trigger = Core.Chkdsk.ScanTrigger.User,
+            StartedUtc = started
+        };
+        services.Chkdsk.LoadPreview(volume + " /scan", output, null, result, startedUtc: started);
+    }
+
+    /// <summary>Adds a ReFS volume, which the Check Disk table shows as inert.</summary>
+    public static void AddRefsVolume(AppServices services)
+    {
+        DriveSnapshot current = services.Drives.Current;
+        VolumeInfo g = new() { Letter = "G:", Label = "Archive", FileSystem = "ReFS", TotalBytes = 2 * Tb, FreeBytes = Tb, DiskNumbers = [3], NtDevice = @"\Device\HarddiskVolume13" };
+        services.Drives.SetSnapshot(current with { Volumes = [.. current.Volumes, g] });
+    }
+
     private static EventRule Fallback(string ruleId, string provider, int eventId, int level) =>
         RuleCatalog.Classify(new RawEvent("System", provider, eventId, level, ""), new Dictionary<string, string>())?.Rule
         ?? throw new InvalidOperationException(ruleId);

@@ -342,12 +342,16 @@ internal sealed class EmptyStateControl : KitControl
     /// <summary>Shows a 48 px progress ring instead of the icon (the Drives page before its first scan).</summary>
     public bool Loading { get; set; }
 
+    // Its own flag: Control.Visible reads false while any parent is hidden, which would skip the layout.
+    private bool _hasButton;
+
     public string? ButtonText
     {
-        get => _button.Visible ? _button.Text : null;
+        get => _hasButton ? _button.Text : null;
         set
         {
-            _button.Visible = value is not null;
+            _hasButton = value is not null;
+            _button.Visible = _hasButton;
             _button.Text = value ?? "";
             PerformLayout();
         }
@@ -356,7 +360,7 @@ internal sealed class EmptyStateControl : KitControl
     protected override void OnLayout(LayoutEventArgs e)
     {
         base.OnLayout(e);
-        if (_button.Visible)
+        if (_hasButton)
         {
             _button.SizeToContent();
             float bottom = MeasureBottom();
@@ -369,7 +373,7 @@ internal sealed class EmptyStateControl : KitControl
         float s = Sc;
         Font body = F(FontRole.Body);
         int lines = string.IsNullOrEmpty(Message) ? 0 : Draw.Wrap(Message, body, (int)Math.Min(Width - 32 * s, 520 * s)).Count;
-        float height = IconSize * s + 24 * s + lines * 24 * s + (_button.Visible ? 48 * s : 0);
+        float height = IconSize * s + 24 * s + lines * 24 * s + (_hasButton ? 48 * s : 0);
         float top = (Height - height) / 2f;
         return top + IconSize * s + 18 * s + 24 * s * (lines + 1) - 12 * s;
     }
@@ -379,7 +383,7 @@ internal sealed class EmptyStateControl : KitControl
         float s = Sc;
         Font body = F(FontRole.Body);
         int lines = string.IsNullOrEmpty(Message) ? 0 : Draw.Wrap(Message, body, (int)Math.Min(Width - 32 * s, 520 * s)).Count;
-        float height = IconSize * s + 24 * s + lines * 24 * s + (_button.Visible ? 48 * s : 0);
+        float height = IconSize * s + 24 * s + lines * 24 * s + (_hasButton ? 48 * s : 0);
         float top = (Height - height) / 2f;
         if (Loading)
         {

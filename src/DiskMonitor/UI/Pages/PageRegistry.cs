@@ -11,6 +11,8 @@ internal static class PageRegistry
     {
         "Overview" => new OverviewPage(services, navigator),
         "Events" => new EventsPage(services, navigator),
+        "Drives" => new DrivesPage(services, navigator),
+        "CheckDisk" => new CheckDiskPage(services, navigator),
         _ => new PlaceholderPage(services, navigator, key, MainForm.PageTitle(key))
     };
 }

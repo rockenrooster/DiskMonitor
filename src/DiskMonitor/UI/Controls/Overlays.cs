@@ -10,6 +10,9 @@ internal sealed record MenuEntry(string? Text, IconName? Icon = null, string? Sh
     public bool Strong { get; init; }
     public IReadOnlyList<MenuEntry>? Submenu { get; init; }
 
+    /// <summary>Shown when the pointer rests on the item (for example why a disabled item is disabled).</summary>
+    public string? Tooltip { get; init; }
+
     public static readonly MenuEntry Separator = new((string?)null);
 
     public bool IsSeparator => Text is null;
@@ -136,12 +139,35 @@ internal sealed class KitMenu : LayeredPopup
         if (index != _hover)
         {
             _hover = index;
+            KitTooltip.Hide(this);
+            ResetMouseEventArgs();
             Render();
             if (index >= 0 && _entries[index].Submenu is not null)
             {
                 OpenSubmenu(index);
             }
         }
+    }
+
+    protected override void OnMouseHover(EventArgs e)
+    {
+        base.OnMouseHover(e);
+        if (_hover >= 0 && _entries[_hover].Tooltip is { } tooltip)
+        {
+            KitTooltip.Show(this, tooltip);
+        }
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        KitTooltip.Hide(this);
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        KitTooltip.Hide(this);
+        base.OnFormClosed(e);
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
