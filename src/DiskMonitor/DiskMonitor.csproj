@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+    <DebugType>embedded</DebugType>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>DiskMonitor</AssemblyName>
+    <RootNamespace>DiskMonitor</RootNamespace>
+    <Product>Disk Monitor</Product>
+    <AssemblyTitle>Disk Monitor</AssemblyTitle>
+    <Description>Real-time disk error monitor for Windows</Description>
+    <Company>Disk Monitor</Company>
+    <Copyright>Disk Monitor contributors</Copyright>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <ApplicationUseCompatibleTextRendering>false</ApplicationUseCompatibleTextRendering>
+    <!-- A tray-resident monitor: one GC heap, no background GC thread. -->
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>false</TieredPGO>
+    <!-- WFO1000 asks for designer-serialization attributes; this UI is built in code, with no designer. -->
+    <NoWarn>$(NoWarn);WFO1000</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="Exists('Assets\DiskMonitor.ico')">
+    <ApplicationIcon>Assets\DiskMonitor.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('Assets\DiskMonitor.ico')">
+    <EmbeddedResource Include="Assets\DiskMonitor.ico" LogicalName="DiskMonitor.ico" />
+  </ItemGroup>
+
+</Project>
