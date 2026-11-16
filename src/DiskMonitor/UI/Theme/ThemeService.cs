@@ -48,11 +48,19 @@ internal static class ThemeService
     /// <summary>Forces a DPI for every control. The render harness only.</summary>
     public static int? DpiOverride { get; set; }
 
+    /// <summary>The render harness turns animations off so drawers and toasts are captured in place.</summary>
+    public static bool ForceNoAnimation { get; set; }
+
     /// <summary>False when Windows' "Animation effects" is off: the drawer and toasts then appear at once.</summary>
     public static bool AnimationsEnabled
     {
         get
         {
+            if (ForceNoAnimation)
+            {
+                return false;
+            }
+
             int enabled = 1;
             return !SystemParametersInfo(SpiGetClientAreaAnimation, 0, ref enabled, 0) || enabled != 0;
         }

@@ -2,6 +2,9 @@ using DiskMonitor.App;
 
 namespace DiskMonitor.Core.Events;
 
+/// <summary>A snapshot of which events are read.</summary>
+internal sealed record ReadState(DateTime ReadUpToUtc, HashSet<string> ReadKeys);
+
 /// <summary>Unread counts per tier at one moment.</summary>
 internal readonly record struct UnreadSummary(int Critical, int High, int Medium, int Low)
 {
@@ -202,6 +205,32 @@ internal sealed class EventStore
         {
             s.ReadUpToUtc = _readUpToUtc;
             s.ReadKeys = [];
+        });
+        Changed?.Invoke();
+    }
+
+    /// <summary>A copy of the read state, so "Mark as read" can be undone exactly.</summary>
+    public ReadState CaptureReadState()
+    {
+        lock (_gate)
+        {
+            return new ReadState(_readUpToUtc, new HashSet<string>(_readKeys));
+        }
+    }
+
+    public void RestoreReadState(ReadState saved)
+    {
+        lock (_gate)
+        {
+            _readUpToUtc = saved.ReadUpToUtc;
+            _readKeys.Clear();
+            _readKeys.UnionWith(saved.ReadKeys);
+        }
+
+        _state.Update(s =>
+        {
+            s.ReadUpToUtc = saved.ReadUpToUtc;
+            s.ReadKeys = SnapshotReadKeys();
         });
         Changed?.Invoke();
     }

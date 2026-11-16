@@ -24,6 +24,10 @@ internal sealed class ShellRoot : KitControl
     private readonly KitButton _stop = new() { Text = Strings.ButtonStop, Compact = true, Variant = ButtonVariant.Subtle, Visible = false };
     private readonly List<Control> _toolbar = [];
     private PageBase? _page;
+    private DrawerPanel? _drawer;
+    private float _drawerShown;
+    private long _drawerAnimationStart;
+    private bool _drawerOpening;
     private bool _stripVisible;
     private bool _animating;
     private string _stripText = "";
@@ -95,6 +99,99 @@ internal sealed class ShellRoot : KitControl
         PerformLayout();
         Invalidate();
     }
+
+    public DrawerPanel? Drawer => _drawer;
+
+    /// <summary>Shows a drawer at the right edge; it slides in over 120 ms (ease-out cubic).</summary>
+    public void ShowDrawer(DrawerPanel drawer)
+    {
+        if (_drawer != drawer)
+        {
+            if (_drawer is not null)
+            {
+                Controls.Remove(_drawer);
+            }
+
+            _drawer = drawer;
+            drawer.WidthChanging += OnDrawerResize;
+            Controls.Add(drawer);
+            drawer.BringToFront();
+            _drawerShown = 0;
+        }
+
+        drawer.Visible = true;
+        StartDrawerAnimation(opening: true);
+    }
+
+    /// <summary>Closes the drawer; it slides out over 100 ms.</summary>
+    public void HideDrawer(bool animate = true)
+    {
+        if (_drawer is null || !_drawer.Visible)
+        {
+            return;
+        }
+
+        if (!animate || !ThemeService.AnimationsEnabled)
+        {
+            FinishHide();
+            return;
+        }
+
+        StartDrawerAnimation(opening: false);
+    }
+
+    private void StartDrawerAnimation(bool opening)
+    {
+        _drawerOpening = opening;
+        if (!ThemeService.AnimationsEnabled)
+        {
+            _drawerShown = opening ? 1 : 0;
+            if (!opening)
+            {
+                FinishHide();
+            }
+
+            PerformLayout();
+            return;
+        }
+
+        _drawerAnimationStart = KitAnimator.Now;
+        KitAnimator.Add(OnDrawerTick);
+    }
+
+    private void OnDrawerTick(long now)
+    {
+        float duration = _drawerOpening ? 120f : 100f;
+        float t = Math.Clamp((now - _drawerAnimationStart) / duration, 0, 1);
+        float eased = 1 - MathF.Pow(1 - t, 3);
+        _drawerShown = _drawerOpening ? eased : 1 - eased;
+        if (t >= 1)
+        {
+            KitAnimator.Remove(OnDrawerTick);
+            if (!_drawerOpening)
+            {
+                FinishHide();
+                return;
+            }
+        }
+
+        PerformLayout();
+    }
+
+    private void FinishHide()
+    {
+        KitAnimator.Remove(OnDrawerTick);
+        if (_drawer is not null)
+        {
+            _drawer.Visible = false;
+            _drawerShown = 0;
+        }
+
+        PerformLayout();
+        Invalidate();
+    }
+
+    private void OnDrawerResize(object? sender, EventArgs e) => PerformLayout();
 
     /// <summary>Badges, the scan indicator and the update item, from current state.</summary>
     public void UpdateRail()
@@ -238,8 +335,22 @@ internal sealed class ShellRoot : KitControl
         int stripTop = Height - S(36);
         int contentLeft = rail + S(24);
         int contentBottom = _stripVisible ? stripTop - S(16) : Height - S(24);
-        _viewport.SetBounds(contentLeft, S(72), Math.Max(1, Width - contentLeft), Math.Max(1, contentBottom - S(72)));
-        _viewport.ContentWidth = Math.Max(1, Width - S(24) - contentLeft);
+        int contentRight = Width - S(24);
+        if (_drawer is { Visible: true })
+        {
+            int drawerWidth = S(_drawer.LogicalWidth);
+            int drawerLeft = Width - (int)Math.Round(drawerWidth * _drawerShown);
+            _drawer.SetBounds(drawerLeft, S(56), drawerWidth, Math.Max(1, (_stripVisible ? stripTop : Height) - S(56)));
+
+            // A content area of 900 px or more narrows; a smaller one is overlaid.
+            if (contentRight - contentLeft >= S(900))
+            {
+                contentRight = Math.Min(contentRight, drawerLeft - S(16));
+            }
+        }
+
+        _viewport.SetBounds(contentLeft, S(72), Math.Max(1, Width - contentLeft - (Width - S(24) - contentRight)), Math.Max(1, contentBottom - S(72)));
+        _viewport.ContentWidth = Math.Max(1, contentRight - contentLeft);
         _viewport.ArrangePage();
         _stop.SizeToContent();
         _stop.Location = new Point(Width - S(16) - _stop.Width, stripTop + (S(36) - _stop.Height) / 2);
@@ -351,6 +462,7 @@ internal sealed class ShellRoot : KitControl
         if (disposing)
         {
             KitAnimator.Remove(OnAnimate);
+            KitAnimator.Remove(OnDrawerTick);
         }
 
         base.Dispose(disposing);

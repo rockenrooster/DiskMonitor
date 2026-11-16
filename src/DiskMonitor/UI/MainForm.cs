@@ -93,6 +93,7 @@ internal sealed partial class MainForm : Form, INavigator
         }
 
         _current?.Deactivate();
+        _root.HideDrawer(animate: false);
         if (!_pages.TryGetValue(resolved, out PageBase? page))
         {
             page = PageFactory?.Invoke(_services, this, resolved) ?? new PlaceholderPage(_services, this, resolved, PageTitle(resolved));
@@ -146,6 +147,12 @@ internal sealed partial class MainForm : Form, INavigator
     }
 
     public void SetUndo(Action? undo) => _undo = undo;
+
+    public void ShowDrawer(DrawerPanel drawer) => _root.ShowDrawer(drawer);
+
+    public void HideDrawer() => _root.HideDrawer();
+
+    public Form Window => this;
 
     public void ExitForUpdate() => _host.ExitApplication();
 

@@ -59,6 +59,93 @@ internal interface INavigator
 
     /// <summary>Registers the undo of the last action whose toast offered it (Ctrl+Z).</summary>
     void SetUndo(Action? undo);
+
+    /// <summary>Shows a detail drawer at the window's right edge, below the header (it slides in).</summary>
+    void ShowDrawer(DrawerPanel drawer);
+
+    /// <summary>Closes the drawer (it slides out).</summary>
+    void HideDrawer();
+
+    /// <summary>The window that owns dialogs and menus.</summary>
+    Form Window { get; }
+}
+
+/// <summary>
+/// A detail drawer: Surface, a 1 px Stroke line on its left and top edges, resizable by dragging its left
+/// edge between 360 and 640 px (the width is remembered by its owner).
+/// </summary>
+internal abstract class DrawerPanel : KitControl
+{
+    private bool _resizing;
+    private int _resizeStartX;
+    private int _resizeStartWidth;
+
+    protected DrawerPanel()
+    {
+        Backdrop = static t => t.Surface;
+        SetStyle(ControlStyles.ContainerControl, true);
+    }
+
+    /// <summary>Logical width (360 to 640).</summary>
+    public int LogicalWidth { get; set; } = 440;
+
+    /// <summary>Raised when a resize drag ends, with the new logical width.</summary>
+    public event EventHandler<int>? WidthCommitted;
+
+    /// <summary>Raised during a resize drag, so the shell lays out again.</summary>
+    public event EventHandler? WidthChanging;
+
+    protected override void PaintContent(Graphics g)
+    {
+        float line = Sf(0.5f);
+        Draw.Line(g, T.Stroke, Sc, line, 0, line, Height);
+        Draw.Line(g, T.Stroke, Sc, 0, line, Width, line);
+        PaintDrawer(g);
+    }
+
+    protected abstract void PaintDrawer(Graphics g);
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_resizing)
+        {
+            int delta = (_resizeStartX - Cursor.Position.X) * 96 / Math.Max(96, Dpi);
+            int next = Math.Clamp(_resizeStartWidth + delta, AppSettings.MinDrawerWidth, AppSettings.MaxDrawerWidth);
+            if (next != LogicalWidth)
+            {
+                LogicalWidth = next;
+                WidthChanging?.Invoke(this, EventArgs.Empty);
+            }
+
+            return;
+        }
+
+        Cursor = e.X < S(5) ? Cursors.SizeWE : Cursors.Default;
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button == MouseButtons.Left && e.X < S(5))
+        {
+            _resizing = true;
+            _resizeStartX = Cursor.Position.X;
+            _resizeStartWidth = LogicalWidth;
+            Capture = true;
+        }
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        if (_resizing)
+        {
+            _resizing = false;
+            Capture = false;
+            WidthCommitted?.Invoke(this, LogicalWidth);
+        }
+    }
 }
 
 /// <summary>

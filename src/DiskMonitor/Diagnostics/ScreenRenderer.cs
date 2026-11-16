@@ -28,6 +28,7 @@ internal static class ScreenRenderer
         string? only = Core.Chkdsk.CommandLine.Value(args, "--only");
         Directory.CreateDirectory(output);
         ApplicationConfiguration.Initialize();
+        ThemeService.ForceNoAnimation = true;
         Stopwatch timer = Stopwatch.StartNew();
         Clock.Pin(DemoNow.Utc);
         List<(string Screen, string Theme, int Scale, string File)> renders = [];
@@ -169,6 +170,9 @@ internal static class ScreenRenderer
     [
         ("overview", "Overview", new Size(1280, 800), null),
         ("events", "Events", new Size(1280, 800), null),
+        ("events-drawer", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewDrawer()),
+        ("events-selection", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewSelection(3)),
+        ("events-empty-filters", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewNoMatch()),
         ("drives", "Drives", new Size(1280, 800), null),
         ("checkdisk", "CheckDisk", new Size(1280, 800), null),
         ("settings", "Settings", new Size(1280, 800), null)
@@ -204,11 +208,65 @@ internal static class ScreenRenderer
         }
 
         form.Root.PerformLayout();
-        Bitmap bitmap = new(form.ClientSize.Width, form.ClientSize.Height, PixelFormat.Format32bppArgb);
-        form.Root.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.ClientSize));
+        Bitmap bitmap = CaptureTree(form.Root);
         form.Hide();
         return bitmap;
     }
+
+    /// <summary>
+    /// Captures a control and its children in true z-order (DrawToBitmap paints overlapping siblings in
+    /// reverse order): each control prints its own client area, then its children from the bottom up.
+    /// </summary>
+    public static Bitmap CaptureTree(Control root)
+    {
+        Bitmap bitmap = new(Math.Max(1, root.Width), Math.Max(1, root.Height), PixelFormat.Format32bppArgb);
+        using Graphics g = Graphics.FromImage(bitmap);
+        Render(root, g, Point.Empty);
+        return bitmap;
+
+        static void Render(Control control, Graphics g, Point offset)
+        {
+            if (control.Width <= 0 || control.Height <= 0)
+            {
+                return;
+            }
+
+            using (Bitmap own = new(control.Width, control.Height, PixelFormat.Format32bppArgb))
+            {
+                using (Graphics og = Graphics.FromImage(own))
+                {
+                    IntPtr hdc = og.GetHdc();
+                    try
+                    {
+                        _ = SendMessage(control.Handle, WmPrint, hdc, PrfClient | PrfEraseBackground | PrfNonClient);
+                    }
+                    finally
+                    {
+                        og.ReleaseHdc(hdc);
+                    }
+                }
+
+                g.DrawImageUnscaled(own, offset);
+            }
+
+            for (int i = control.Controls.Count - 1; i >= 0; i--)
+            {
+                Control child = control.Controls[i];
+                if (child.Visible)
+                {
+                    Render(child, g, new Point(offset.X + child.Left, offset.Y + child.Top));
+                }
+            }
+        }
+    }
+
+    private const int WmPrint = 0x0317;
+    private const int PrfNonClient = 0x02;
+    private const int PrfClient = 0x04;
+    private const int PrfEraseBackground = 0x08;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SendMessageW")]
+    private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, int lParam);
 
     private sealed class HarnessHost : UI.IAppHost
     {
@@ -238,8 +296,7 @@ internal static class ScreenRenderer
         host.Show();
         Application.DoEvents();
         root.PerformLayout();
-        Bitmap bitmap = new(width, height, PixelFormat.Format32bppArgb);
-        root.DrawToBitmap(bitmap, new Rectangle(0, 0, width, height));
+        Bitmap bitmap = CaptureTree(root);
         host.Hide();
         host.Controls.Remove(root);
         root.Dispose();

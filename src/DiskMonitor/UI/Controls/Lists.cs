@@ -355,6 +355,23 @@ internal sealed class VirtualList : KitControl
 
     public bool IsSelected(ListRow row) => _selected.Contains(row.Key);
 
+    /// <summary>Adds or removes one row from the selection, as Ctrl+click does.</summary>
+    public void ToggleSelection(int index)
+    {
+        if (index < 0 || index >= _rows.Count || !_rows[index].Selectable)
+        {
+            return;
+        }
+
+        if (!_selected.Remove(_rows[index].Key))
+        {
+            _selected.Add(_rows[index].Key);
+        }
+
+        Invalidate();
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     public void ScrollTo(float offset)
     {
         float previous = _scroll;

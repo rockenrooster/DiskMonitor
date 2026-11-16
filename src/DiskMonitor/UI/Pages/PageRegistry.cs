@@ -9,6 +9,8 @@ internal static class PageRegistry
 
     public static PageBase Create(AppServices services, INavigator navigator, string key) => key switch
     {
+        "Overview" => new OverviewPage(services, navigator),
+        "Events" => new EventsPage(services, navigator),
         _ => new PlaceholderPage(services, navigator, key, MainForm.PageTitle(key))
     };
 }

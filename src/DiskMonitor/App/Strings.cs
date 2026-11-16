@@ -378,6 +378,235 @@ internal static class Strings
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Overview (subplan 04)
+    // ---------------------------------------------------------------------------------------------
+
+    public const string OverviewRefreshTip = "Reload events and drive health";
+
+    public static string InfoLimited(string error) => $"Monitoring is limited: {error}";
+
+    public static string InfoSnoozed(DateTime untilUtc) => $"Notifications are snoozed until {SnoozeTime(untilUtc)}.";
+
+    public const string InfoResume = "Resume";
+
+    public static string InfoReadingHistory(int days) => $"Reading the last {days} days of disk events…";
+
+    public const string CardDrives = "DRIVES";
+    public const string CardEvents = "EVENTS";
+    public const string CardCheckDisk = "CHECK DISK";
+    public const string CardByDrive = "BY DRIVE";
+    public const string CardNextSteps = "RECOMMENDED NEXT STEPS";
+    public const string CardRecentEvents = "RECENT EVENTS";
+
+    public static string DrivesOfHealthy(int ok, int total) => $"{ok} of {total}";
+
+    public const string DrivesHealthySuffix = " healthy";
+
+    public static string DrivesNeedAttention(int n) => n == 1 ? "1 drive needs attention" : $"{n} drives need attention";
+
+    public static string DrivesNoHealthData(int n) => n == 1 ? "1 drive reports no health data" : $"{n} drives report no health data";
+
+    public const string DrivesNoneReport = "No drive reports its health";
+    public const string EventsUnreadSuffix = " unread";
+    public const string EventsNoNewProblems = "No new problems";
+
+    public static string EventsLatest(string title, DateTime utc) => $"Latest: {title}{Separator}{Format.RecentDate(utc, inSentence: false)}";
+
+    public static string EventsInDays(int n, int days) => $"{Events(n)} in {days} days";
+
+    public const string CheckDiskLast = "Last";
+    public const string CheckDiskNext = "Next";
+
+    public static string CheckDiskLastValue(string volume, bool clean, DateTime utc) =>
+        $"{volume} {(clean ? "clean" : "problems found")}{Separator}{Format.RecentDate(utc, inSentence: false)}";
+
+    public const string CheckDiskNeverScanned = "No volume has been scanned yet";
+
+    public static string CheckDiskNextValue(DateTime utc) => $"{Format.RecentDate(utc, inSentence: false)}{Separator}routine scan";
+
+    public const string CheckDiskNoRoutine = "No routine scans";
+
+    public static string TilePlus24(int n) => n == 0 ? "None in 24 h" : $"+{Format.Number(n)} in 24 h";
+
+    public static string DriveRowName(string name, string letters) => letters.Length == 0 ? name : $"{name} ({letters})";
+
+    public static string DriveRowCount(int n) => n == 0 ? "No events" : Events(n);
+
+    public static string SegmentTip(Tier tier, int count) => $"{TierName(tier)}: {Format.Number(count)}";
+
+    public const string NothingToDo = "Nothing needs doing right now.";
+
+    public static string RecFailingTitle(string name) => $"{name} reports that it is failing";
+
+    public const string RecFailingDetail = "Back up its data now";
+    public const string RecOpenDrive = "Open drive";
+
+    public static string RecCriticalTitle(int n) => n == 1 ? "1 critical event needs attention" : $"{Format.Number(n)} critical events need attention";
+
+    public static string RecLatest(string title, string device) => device.Length > 0 ? $"Latest: {title}{Separator}{device}" : $"Latest: {title}";
+
+    public const string RecReview = "Review";
+
+    public static string RecDamageTitle(string volume) => $"Windows reported file system damage on {volume}";
+
+    public const string RecDamageDetail = "A read-only scan shows what CHKDSK would repair";
+
+    public static string RecScanButton(string volume) => $"Scan {volume}…";
+
+    public static string RecHighTitle(int n) => n == 1 ? "1 high-severity event to review" : $"{Format.Number(n)} high-severity events to review";
+
+    public static string RecCautionTitle(string name, string note) => $"{name}: {note}";
+
+    public const string RecCautionDetail = "Keep its backups current";
+    public const string RecBlockedTitle = "Windows is blocking Disk Monitor's notifications";
+    public const string RecBlockedDetail = "Alerts cannot reach you until they are allowed";
+    public const string RecOpenSettings = "Open settings";
+    public const string RecStartupTitle = "Disk Monitor does not start with Windows";
+    public const string RecStartupDetail = "It only watches while it runs";
+    public const string RecTurnOn = "Turn on";
+    public const string RecStartupToast = "Disk Monitor now starts with Windows";
+    public const string RecNoScanTitle = "No volume has been scanned in 30 days";
+    public const string RecNoScanDetail = "Routine scans can do this on their own";
+    public const string RecCheckDisk = "Check Disk";
+
+    public static string RecentPerDay(int days) => $"Events per day, last {days} days";
+
+    public static string RecentNone(int days) => $"No events in {days} days.";
+
+    public const string Undo = "Undo";
+
+    // ---------------------------------------------------------------------------------------------
+    // Events (subplan 05)
+    // ---------------------------------------------------------------------------------------------
+
+    public const string EventsRefreshTip = "Reload from the Windows logs";
+    public const string EventsExport = "Export";
+    public const string EventsMarkAllRead = "Mark all as read";
+    public const string EventsNothingUnread = "Nothing is unread";
+    public const string ChipAll = "All";
+    public const string DropDrive = "Drive";
+    public const string DropAllDrives = "All drives";
+
+    public static string DropDisk(int disk, string model) => model.Length > 0 ? $"Disk {disk} · {model}" : $"Disk {disk}";
+
+    public const string DropShow = "Show";
+    public const string ShowAll = "All events";
+    public const string ShowUnread = "Unread only";
+    public const string DropRange = "Range";
+    public const string Range24 = "Last 24 hours";
+    public const string Range7 = "Last 7 days";
+    public const string Range30 = "Last 30 days";
+    public const string RangeAll = "All loaded";
+    public const string DropRepeats = "Repeats";
+    public const string RepeatsCombine = "Combine repeats";
+    public const string RepeatsEach = "Show each event";
+    public const string GroupBy = "Group by";
+    public const string GroupTier = "Tier";
+    public const string GroupDrive = "Drive";
+    public const string GroupNone = "None";
+
+    public static string GroupLabel(string value) => $"Group: {value}";
+
+    public const string DropKind = "Kind";
+    public const string KindAll = "All kinds";
+
+    public static string ShowingOf(int shown, int total) => $"Showing {Format.Number(shown)} of {Format.Number(total)}";
+
+    public const string ClearFilters = "Clear filters";
+    public const string SearchEvents = "Search events";
+    public const string NoDrive = "No drive";
+
+    public static string RowDevice(string device, string source, int eventId) => $"{device}{Separator}{source} {eventId}";
+
+    public static string RowHealthCheck(string device) => device.Length > 0 ? $"{device}{Separator}Health check" : "Health check";
+
+    public static string RowCount(int n) => $"×{Format.Number(n)}";
+
+    public const string RowDetails = "Details";
+    public const string MoreActions = "More actions";
+
+    public static string NewEventsPill(int n) => $"{Format.Count(n, "new event", "new events")}{Separator}Show";
+
+    public static string SelectedCount(int n) => $"{Format.Number(n)} selected";
+
+    public const string MarkAsRead = "Mark as read";
+    public const string Copy = "Copy";
+    public const string EmptyNoEventsTitle = "No disk problems found";
+
+    public static string EmptyNoEventsText(int days) => $"Monitoring is live. Nothing was logged in the last {days} days.";
+
+    public const string EmptyFilteredTitle = "Nothing matches these filters";
+    public const string DrawerClose = "Close (Esc)";
+    public const string OpenInEventViewer = "Open in Event Viewer";
+    public const string WhatThisMeans = "What this means";
+    public const string WhyItMattersLabel = "Why it matters";
+    public const string WhatYouCanDo = "What you can do";
+    public const string EventMessage = "Event message";
+
+    public static string HistoryRow(int n, DateTime sinceUtc) => $"History{Separator}{n} times since {Format.RecentDate(sinceUtc, inSentence: true)}";
+
+    public const string TechnicalDetails = "Technical details";
+    public const string TechSource = "Source";
+    public const string TechEventId = "Event ID";
+    public const string TechLog = "Log";
+    public const string TechLevel = "Level";
+    public const string TechRecordId = "Record ID";
+    public const string TechRule = "Rule";
+    public const string CopyDetails = "Copy details";
+    public const string Ignore = "Ignore";
+    public const string ChangeTier = "Change tier";
+    public const string IgnoreThisKind = "Ignore this kind of event";
+    public const string ShowOnlyThisDrive = "Show only this drive";
+
+    public static string UseDefaultTier(Tier tier) => $"Use default ({TierName(tier)})";
+
+    public static string LevelName(int level) => level switch
+    {
+        1 => "Critical",
+        2 => "Error",
+        3 => "Warning",
+        4 or 0 => "Information",
+        _ => "Verbose"
+    };
+
+    public static string ToastIgnored(string title) => $"Ignored \"{title}\"";
+
+    public static string ToastIgnoredText(int n) => $"{Events(n)} hidden. Settings › Rules can bring them back.";
+
+    public static string ToastMoved(string title, Tier tier) => $"Moved \"{title}\" to {TierName(tier)}";
+
+    public static string ToastMovedDefault(string title) => $"Moved \"{title}\" back to its default tier";
+
+    public static string ToastMovedText(int n) => $"{Events(n)} changed tier.";
+
+    public static string ToastMarkedRead(int n) => $"Marked {Events(n)} as read";
+
+    public const string ToastCopied = "Copied";
+
+    public static string ToastExported(int n) => $"Exported {Events(n)}";
+
+    public const string OpenFolder = "Open folder";
+    public const string ToastExportFailed = "Export failed";
+
+    public static string ToastExportFailedText(string reason) => $"{reason} Choose another folder.";
+
+    public const string ExportFilter = "CSV files (*.csv)|*.csv";
+
+    public static string ExportFileName(DateTime localNow) => $"DiskMonitor-events-{localNow:yyyyMMdd-HHmm}.csv";
+
+    public static string CopyHeader(Tier tier, string title) => $"{TierName(tier)}: {title}";
+
+    public static string CopyDevice(string device) => $"Device: {device}";
+
+    public static string CopySource(string source, int eventId, string log) => $"Source: {source} event {eventId} ({log} log)";
+
+    public static string CopyOccurrences(int n) => $"Occurrences: {Format.Number(n)}";
+
+    public static string CopyLabelled(string label, string text) => $"{label}: {text}";
+
+    public static readonly string[] CsvColumns = ["Time", "Tier", "Kind", "Title", "Device", "Volume", "Disk", "Log", "Source", "EventId", "RecordId", "Rule", "Message"];
+
+    // ---------------------------------------------------------------------------------------------
     // Updates (subplan 08, Updates)
     // ---------------------------------------------------------------------------------------------
 
