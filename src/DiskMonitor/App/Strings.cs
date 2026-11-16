@@ -281,6 +281,103 @@ internal static class Strings
     public static string ErrorVolumeUnavailable(string letter) => $"Volume {letter} is not available.";
 
     // ---------------------------------------------------------------------------------------------
+    // Shell (subplan 03)
+    // ---------------------------------------------------------------------------------------------
+
+    public static string WindowTitle(string version) => $"Disk Monitor {version}";
+
+    public const string ErrorDialogTitle = "Something went wrong";
+    public const string ErrorDialogText = "Disk Monitor will keep running. Details were saved to the log.";
+    public const string ErrorDialogOpenLog = "Open log";
+    public const string ButtonClose = "Close";
+
+    public const string PageOverview = "Overview";
+    public const string PageEvents = "Events";
+    public const string PageDrives = "Drives";
+    public const string PageCheckDisk = "Check Disk";
+    public const string PageSettings = "Settings";
+    public const string NavUpdateAvailable = "Update available";
+    public const string BadgeOverflow = "999+";
+
+    public static string TraySnoozed(DateTime untilUtc) => $"Disk Monitor · notifications snoozed until {SnoozeTime(untilUtc)}";
+
+    public static string TrayUnread(int total, int critical) =>
+        critical > 0 ? $"Disk Monitor · {Format.Number(total)} unread ({Format.Number(critical)} critical)" : $"Disk Monitor · {Format.Number(total)} unread";
+
+    public const string TrayFailing = "Disk Monitor · a drive is failing";
+    public const string TrayAttention = "Disk Monitor · a drive needs attention";
+    public const string TrayLimited = "Disk Monitor · monitoring is limited";
+    public const string TrayAllClear = "Disk Monitor · all clear";
+
+    public const string MenuOpen = "Open Disk Monitor";
+
+    public static string MenuUnread(int total, int critical) =>
+        critical > 0 ? $"{Format.Count(total, "unread alert", "unread alerts")} ({Format.Number(critical)} critical)" : Format.Count(total, "unread alert", "unread alerts");
+
+    public const string MenuNoUnread = "No unread alerts";
+    public const string MenuMarkAllRead = "Mark all as read";
+    public const string MenuSnooze = "Snooze notifications";
+    public const string SnoozeHour = "For 1 hour";
+    public const string SnoozeFourHours = "For 4 hours";
+    public const string SnoozeTomorrow = "Until tomorrow 08:00";
+    public const string MenuResume = "Resume notifications";
+    public const string MenuCheckDisk = "Check Disk…";
+
+    public static string MenuInstall(string version) => $"Install version {version}…";
+
+    public const string MenuCheckUpdates = "Check for updates";
+    public const string MenuExit = "Exit Disk Monitor";
+
+    public const string TrayHintTitle = "Disk Monitor is still running";
+    public const string TrayHintText = "It keeps watching your drives from the notification area. Right-click the icon to exit.";
+
+    public static string StripScanning(string volume, int? percent, TimeSpan? left, bool repair, bool narrow)
+    {
+        string verb = repair ? $"Repairing {volume}" : $"Scanning {volume}";
+        if (percent is null)
+        {
+            return verb;
+        }
+
+        string text = $"{verb} · {percent}%";
+        return narrow || left is null ? text : $"{text} · about {Format.Duration(left.Value, estimate: false)} left";
+    }
+
+    public static string StripWaiting(string volume) => $"Waiting for administrator approval to scan {volume}…";
+
+    public const string StripReading = "Reading event history…";
+    public const string ButtonStop = "Stop";
+    public const string StopDialogTitle = "Stop this scan?";
+    public const string StopDialogText = "Nothing on the disk was changed. You can scan again at any time.";
+    public const string StopDialogConfirm = "Stop scan";
+    public const string StopDialogCancel = "Keep scanning";
+    public const string PlaceholderPage = "This page is being built.";
+
+    // Results of a CHKDSK run (subplan 07, result info bars). Volumes include the colon, as in "C:".
+    public static string ScanFinishedToast(string volume) => $"Scan of {volume} finished";
+
+    public static string ResultClean(string volume) => $"{volume} no problems found.";
+
+    public static string ResultProblems(string volume) => $"{volume} problems found. A repair can fix them.";
+
+    public static string ResultFixed(string volume) => $"{volume} errors were found and fixed.";
+
+    public static string ResultScheduled(string volume) => $"{volume} the repair runs at the next restart.";
+
+    public static string ResultCancelled(string volume) => $"{volume} the scan was stopped. Nothing was changed.";
+
+    public static string ResultFailed(string volume, string reason) => $"{volume} the scan could not run. {reason}";
+
+    /// <summary>Time of day for a snooze end: the time, with the weekday when it is not today.</summary>
+    public static string SnoozeTime(DateTime untilUtc)
+    {
+        DateTime local = untilUtc.ToLocalTime();
+        DateTime now = Clock.UtcNow.ToLocalTime();
+        string time = local.ToString("t", CultureInfo.CurrentCulture);
+        return local.Date == now.Date ? time : Format.RecentDate(untilUtc, inSentence: true);
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Updates (subplan 08, Updates)
     // ---------------------------------------------------------------------------------------------
 

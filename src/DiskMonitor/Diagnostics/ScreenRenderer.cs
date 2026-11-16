@@ -148,6 +148,77 @@ internal static class ScreenRenderer
         Screens.Insert(1, ("dialogs", new Size(1280, 1396), dpi => ReferenceSheets.Dialogs(dpi)));
         Screens.Insert(2, ("icons", new Size(1280, 852), dpi => ReferenceSheets.Icons(dpi)));
         Screens.Insert(3, ("gallery-disk-monitor", new Size(1280, 900), dpi => ReferenceSheets.Gallery(dpi)));
+        UI.Pages.PageRegistry.Register();
+        foreach ((string name, string page, Size size, Action<UI.MainForm>? setup) in PageScreens)
+        {
+            Screens.Add((name, size, dpi => RenderWindow(page, size, dpi, setup, fullHeight: false)));
+            if (name is "overview" or "drives" or "settings")
+            {
+                Screens.Add((name + "-full", size, dpi => RenderWindow(page, size, dpi, setup, fullHeight: true)));
+            }
+        }
+
+        foreach (string page in UI.MainForm.PageOrder.Concat(["Settings"]))
+        {
+            Screens.Add(("minimum-" + page.ToLowerInvariant(), new Size(960, 600), dpi => RenderWindow(page, new Size(960, 600), dpi, null, fullHeight: false)));
+        }
+    }
+
+    /// <summary>Page screens (name, page key, logical window size, setup applied after the page is shown).</summary>
+    public static readonly List<(string Name, string Page, Size Size, Action<UI.MainForm>? Setup)> PageScreens =
+    [
+        ("overview", "Overview", new Size(1280, 800), null),
+        ("events", "Events", new Size(1280, 800), null),
+        ("drives", "Drives", new Size(1280, 800), null),
+        ("checkdisk", "CheckDisk", new Size(1280, 800), null),
+        ("settings", "Settings", new Size(1280, 800), null)
+    ];
+
+    /// <summary>Renders the main window off-screen with demo data, on a page, at a logical size.</summary>
+    public static Bitmap RenderWindow(string page, Size logical, int dpi, Action<UI.MainForm>? setup, bool fullHeight, Action<App.AppServices>? prepare = null)
+    {
+        using App.AppServices services = new(action => action(), demoMode: true);
+        DemoData.Populate(services);
+        prepare?.Invoke(services);
+        Size client = new((int)Math.Round(logical.Width * dpi / 96.0), (int)Math.Round(logical.Height * dpi / 96.0));
+        using UI.MainForm form = new(services, new HarnessHost(), page)
+        {
+            StartPosition = FormStartPosition.Manual,
+            Location = new Point(-30000, -30000),
+            ShowInTaskbar = false,
+            FormBorderStyle = FormBorderStyle.None
+        };
+        form.ClientSize = client;
+        form.Show();
+        form.ClientSize = client;
+        Application.DoEvents();
+        setup?.Invoke(form);
+        Application.DoEvents();
+        if (fullHeight && form.CurrentPage is { } current)
+        {
+            int viewport = client.Height - (int)Math.Round(72 * dpi / 96.0) - (int)Math.Round(24 * dpi / 96.0);
+            int content = current.Arrange(current.Width, viewport);
+            int extra = Math.Clamp(content - viewport, 0, 6000);
+            form.ClientSize = new Size(client.Width, client.Height + extra);
+            Application.DoEvents();
+        }
+
+        form.Root.PerformLayout();
+        Bitmap bitmap = new(form.ClientSize.Width, form.ClientSize.Height, PixelFormat.Format32bppArgb);
+        form.Root.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.ClientSize));
+        form.Hide();
+        return bitmap;
+    }
+
+    private sealed class HarnessHost : UI.IAppHost
+    {
+        public void ShowMainWindow(Action<UI.MainForm>? then = null)
+        {
+        }
+
+        public void ExitApplication()
+        {
+        }
     }
 
     /// <summary>Paints a canvas of child controls and painted items to a bitmap, off-screen.</summary>

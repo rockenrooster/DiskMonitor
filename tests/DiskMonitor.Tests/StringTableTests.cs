@@ -98,6 +98,9 @@ public sealed partial class StringTableTests
         [") and "] = "event log XPath query fragment",
         ["AppsUseLightTheme"] = "registry value name",
         ["H"] = "probe glyph used to measure a font's baseline",
+        ["simulate "] = "IPC command word for --simulate",
+        ["Unknown command: "] = "log message (ErrorLog.Write's second argument)",
+        ["Update"] = "key of the rail's Update available item",
         ["HighContrast"] = "name of the high-contrast token set",
         ["Settings save"] = "log context passed through JsonFile.TryWrite",
         ["State save"] = "log context passed through JsonFile.TryWrite"
