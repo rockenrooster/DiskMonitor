@@ -7,9 +7,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>false</SelfContained>
+    <!-- Self-contained, single file, uncompressed (subplan 10): nothing to install, fast start. -->
+    <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishReadyToRun>true</PublishReadyToRun>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
     <PublishTrimmed>false</PublishTrimmed>
     <DebugType>embedded</DebugType>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
