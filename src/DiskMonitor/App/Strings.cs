@@ -545,6 +545,10 @@ internal static class Strings
 
     public static string HistoryRow(int n, DateTime sinceUtc) => $"History{Separator}{n} times since {Format.RecentDate(sinceUtc, inSentence: true)}";
 
+    public const string ShortcutEnter = "Enter";
+    public const string ShortcutCtrlEnter = "Ctrl+Enter";
+    public const string ShortcutCtrlI = "Ctrl+I";
+    public const string ShortcutCtrlC = "Ctrl+C";
     public const string TechnicalDetails = "Technical details";
     public const string TechSource = "Source";
     public const string TechEventId = "Event ID";

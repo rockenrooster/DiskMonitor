@@ -944,16 +944,16 @@ internal sealed class EventsPage : PageBase
         string? primary = EventDrawer.PrimaryLabel(item, Services.Drives.Current);
         List<MenuEntry> entries =
         [
-            new(Strings.RowDetails, IconName.Info, "Enter", () => { _list.SelectOnly(_list.IndexOfKey(group.Key)); OpenDrawer(group); })
+            new(Strings.RowDetails, IconName.Info, Strings.ShortcutEnter, () => { _list.SelectOnly(_list.IndexOfKey(group.Key)); OpenDrawer(group); })
         ];
         if (primary is not null)
         {
-            entries.Add(new MenuEntry(primary, primary == Strings.RecOpenDrive ? IconName.Drive : IconName.Play, "Ctrl+Enter", () => RunPrimary(group)));
+            entries.Add(new MenuEntry(primary, primary == Strings.RecOpenDrive ? IconName.Drive : IconName.Play, Strings.ShortcutCtrlEnter, () => RunPrimary(group)));
         }
 
         entries.Add(MenuEntry.Separator);
         entries.Add(new MenuEntry(Strings.MarkAsRead, IconName.Check, null, () => Services.Events.MarkRead(group.Events)) { Enabled = group.UnreadCount > 0 });
-        entries.Add(new MenuEntry(Strings.IgnoreThisKind, IconName.Ignore, "Ctrl+I", () => Ignore(group)));
+        entries.Add(new MenuEntry(Strings.IgnoreThisKind, IconName.Ignore, Strings.ShortcutCtrlI, () => Ignore(group)));
         entries.Add(new MenuEntry(Strings.ChangeTier) { Submenu = TierMenu(group) });
         entries.Add(MenuEntry.Separator);
         if (item.DiskNumber is { } disk)
@@ -961,7 +961,7 @@ internal sealed class EventsPage : PageBase
             entries.Add(new MenuEntry(Strings.ShowOnlyThisDrive, IconName.Filter, null, () => Navigate(new EventFilter(DiskNumber: disk))));
         }
 
-        entries.Add(new MenuEntry(Strings.CopyDetails, IconName.Copy, "Ctrl+C", () => CopyGroups([group])));
+        entries.Add(new MenuEntry(Strings.CopyDetails, IconName.Copy, Strings.ShortcutCtrlC, () => CopyGroups([group])));
         if (!item.Synthetic)
         {
             entries.Add(new MenuEntry(Strings.OpenInEventViewer, IconName.Open, null, () => EventViewer.Open(item)));
