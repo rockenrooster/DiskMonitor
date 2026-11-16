@@ -18,7 +18,8 @@ public sealed partial class StringTableTests
         ["Diagnostics/SelfCheck.cs"] = "the self-check prints a diagnostic report, not UI",
         ["Diagnostics/DemoData.cs"] = "invented demo data (fixtures)",
         ["Diagnostics/ReferenceSheets.cs"] = "sample labels copied from MediaVerifier's reference sheets (fixtures)",
-        ["UI/Theme/Theme.cs"] = "the pre-spec theme, replaced by ThemeService in UI-01 (milestone M2)"
+        ["Diagnostics/ScreenRenderer.cs"] = "the render harness, a developer tool: its console output and index.html are not UI",
+        ["UI/Theme/IconGeometry.cs"] = "icon geometry is data; its exceptions report malformed geometry to developers"
     };
 
     /// <summary>Exact literals that look like words but are identifiers, values or protocol text.</summary>
@@ -96,6 +97,8 @@ public sealed partial class StringTableTests
         ["N\r\nY\r\n"] = "answers typed into CHKDSK's prompts",
         [") and "] = "event log XPath query fragment",
         ["AppsUseLightTheme"] = "registry value name",
+        ["H"] = "probe glyph used to measure a font's baseline",
+        ["HighContrast"] = "name of the high-contrast token set",
         ["Settings save"] = "log context passed through JsonFile.TryWrite",
         ["State save"] = "log context passed through JsonFile.TryWrite"
     };

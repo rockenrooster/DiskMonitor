@@ -49,6 +49,9 @@ internal static class Strings
 
     public static string AgeYears(double years) => years.ToString("0.0", CultureInfo.CurrentCulture) + " years";
 
+    public const string SwitchOn = "On";
+    public const string SwitchOff = "Off";
+
     public const string TestEventMessage = "This is a test event raised with --simulate. It was not logged by Windows and disappears at the next history reload.";
 
     public static string Events(long count) => Format.Count(count, "event", "events");
