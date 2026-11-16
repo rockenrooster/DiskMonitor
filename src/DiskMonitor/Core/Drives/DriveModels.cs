@@ -78,7 +78,7 @@ internal sealed record VolumeInfo
     /// <summary>ReFS repairs itself online and rejects CHKDSK.</summary>
     public bool SupportsChkdsk => !FileSystem.Equals("ReFS", StringComparison.OrdinalIgnoreCase) && FileSystem.Length > 0;
 
-    public string DisplayName => string.IsNullOrWhiteSpace(Label) ? Letter : $"{Letter} {Label}";
+    public string DisplayName => App.Strings.VolumeName(Letter, Label);
 }
 
 internal sealed record PhysicalDisk
@@ -123,34 +123,11 @@ internal sealed record PhysicalDisk
     /// <summary>Identity that survives re-numbering, used to track a drive's counters over time.</summary>
     public string Key => string.IsNullOrWhiteSpace(Serial) ? $"{Model}|{SizeBytes}" : $"{Model}|{Serial}";
 
-    public string DisplayName => string.IsNullOrWhiteSpace(Model) ? $"Disk {Number}" : Model;
+    public string DisplayName => string.IsNullOrWhiteSpace(Model) ? App.Strings.DiskName(Number) : Model;
 
-    public string BusLabel => Bus switch
-    {
-        BusType.Nvme => "NVMe",
-        BusType.Sata => "SATA",
-        BusType.Ata => "ATA",
-        BusType.Usb => "USB",
-        BusType.Sas => "SAS",
-        BusType.Scsi => "SCSI",
-        BusType.Raid => "RAID",
-        BusType.Sd => "SD card",
-        BusType.Mmc => "MMC",
-        BusType.Iscsi => "iSCSI",
-        BusType.Spaces => "Storage Space",
-        BusType.Virtual or BusType.FileBackedVirtual => "Virtual",
-        BusType.Ufs => "UFS",
-        BusType.Ieee1394 => "FireWire",
-        BusType.Fibre => "Fibre Channel",
-        _ => "Disk"
-    };
+    public string BusLabel => App.Strings.BusName(Bus);
 
-    public string MediaLabel => Media switch
-    {
-        MediaKind.Ssd => "SSD",
-        MediaKind.Hdd => "HDD",
-        _ => RemovableMedia ? "Removable" : ""
-    };
+    public string MediaLabel => App.Strings.MediaName(Media, RemovableMedia);
 
     public string VolumeLetters => string.Join(", ", Volumes.Select(v => v.Letter));
 }

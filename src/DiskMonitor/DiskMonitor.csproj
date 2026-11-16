@@ -35,6 +35,10 @@
     <NoWarn>$(NoWarn);WFO1000</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="DiskMonitor.Tests" />
+  </ItemGroup>
+
   <PropertyGroup Condition="Exists('Assets\DiskMonitor.ico')">
     <ApplicationIcon>Assets\DiskMonitor.ico</ApplicationIcon>
   </PropertyGroup>

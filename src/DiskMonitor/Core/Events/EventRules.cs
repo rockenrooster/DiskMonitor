@@ -12,7 +12,8 @@ internal sealed record EventRule(
     string Explanation,
     string Advice,
     bool SuggestScan = false,
-    bool Ignore = false);
+    bool Ignore = false,
+    string? Why = null);
 
 /// <summary>The fields of a log record that classification needs.</summary>
 internal readonly record struct RawEvent(string Log, string Provider, int Id, int Level, string Message);
@@ -93,6 +94,16 @@ internal static partial class RuleCatalog
 
         return new Classification(rule, tier, overridden);
     }
+
+    /// <summary>Why a rule's events matter: the rule's own reason, or the default for its kind.</summary>
+    public static string WhyItMatters(EventRule rule) => rule.Why ?? rule.Kind switch
+    {
+        ErrorKind.Physical => "A drive or connection that produces errors can fail without further warning, and take its data with it.",
+        ErrorKind.Logical => "File system damage can make files and folders unreadable, and it can spread while the volume stays in use.",
+        ErrorKind.Health => "The drive's own measurements are the earliest warning of wear and failure.",
+        ErrorKind.Capacity => "When a volume fills up, programs and Windows updates start to fail, and saving files can lose data.",
+        _ => "This is mostly informational. It matters if it keeps happening."
+    };
 
     /// <summary>The tier a rule currently maps to, or null when the rule is ignored.</summary>
     public static Tier? ResolveTier(EventRule rule, IReadOnlyDictionary<string, string> overrides, out bool overridden)
@@ -250,8 +261,10 @@ internal static partial class RuleCatalog
     {
         Dictionary<string, EventRule> rules = new(StringComparer.OrdinalIgnoreCase);
 
-        void Add(string id, string source, Tier tier, ErrorKind kind, string title, string explanation, string advice, bool scan = false, bool ignore = false) =>
-            rules[id] = new EventRule(id, source, tier, kind, title, explanation, advice, scan, ignore);
+        void Add(string id, string source, Tier tier, ErrorKind kind, string title, string explanation, string advice, bool scan = false, bool ignore = false, string? why = null) =>
+            rules[id] = new EventRule(id, source, tier, kind, title, explanation, advice, scan, ignore, why);
+
+        const string repairsRecur = "Repairs like this are routine, but repeated repairs on one volume can be an early sign of a failing drive.";
 
         const string backup = "Back up this drive now, then check its health on the Drives page. Plan to replace it if this keeps happening.";
         const string cabling = "Reseat or replace the data and power cables, try another port, and update the storage controller driver. If it continues, back up the drive and check its health.";
@@ -270,7 +283,7 @@ internal static partial class RuleCatalog
             "Windows hit an error reading or writing this disk during paging or cached file I/O. It usually points to a failing drive, a bad cable, or a device that was unplugged while in use.",
             "Back up the drive and check its cabling and health. For removable drives, always use Safely Remove before unplugging.");
         Add("disk:52", "disk · Event 52", Tier.Critical, ErrorKind.Health, "Drive failure predicted",
-            "The drive's own S.M.A.R.T. diagnostics predict that it will fail.",
+            "The drive's own health report (S.M.A.R.T.) predicts that it will fail.",
             "Back up your data immediately and replace the drive.");
         Add("disk:153", "disk · Event 153", Tier.Medium, ErrorKind.Physical, "I/O request retried",
             "A read or write to this disk timed out and was retried. An occasional retry is harmless; frequent retries point to cabling, power, or drive problems.",
@@ -296,7 +309,7 @@ internal static partial class RuleCatalog
 
         // --- storage port and miniport drivers ----------------------------------------------------
         Add("port:129", "Storage controller · Event 129", Tier.Medium, ErrorKind.Physical, "Storage device was reset",
-            "Windows reset a storage device after it stopped responding. Repeated resets cause freezes and can precede drive failure.",
+            "Windows reset a storage device after it stopped responding. Repeated resets often cause freezes and can come before a drive fails.",
             "Update storage drivers and firmware, check cables and power, and consider disabling link power management if resets continue.");
         Add("port:9", "Storage controller · Event 9", Tier.Medium, ErrorKind.Physical, "Storage device timed out",
             "A storage device did not respond within the time Windows allows.",
@@ -313,7 +326,7 @@ internal static partial class RuleCatalog
 
         // --- NTFS: file system structure ----------------------------------------------------------
         Add("ntfs:55", "Ntfs · Event 55", Tier.Critical, ErrorKind.Logical, "File system corruption detected",
-            "NTFS found corruption in the file system structure of this volume.",
+            "The file system (NTFS, which organises the files on this volume) found damage in its own structure.",
             "Run a scan on the volume. If corruption returns after a repair, check the health of the underlying drive.", scan: true);
         Add("ntfs:98-full", "Ntfs · Event 98", Tier.High, ErrorKind.Logical, "Volume needs a full CHKDSK",
             "Windows found file system problems that can only be repaired while the volume is offline.",
@@ -326,7 +339,7 @@ internal static partial class RuleCatalog
             "Run a scan on the volume from the Check Disk page.", scan: true);
         Add("ntfs:130", "Ntfs · Event 130", Tier.Low, ErrorKind.Logical, "File system repaired",
             "NTFS repaired a problem in the file system structure of this volume on its own.",
-            "No action is needed. Repeated repairs on one volume are a reason to check the drive's health.");
+            "No action is needed. Repeated repairs on one volume are a reason to check the drive's health.", why: repairsRecur);
         Add("ntfs:131", "Ntfs · Event 131", Tier.Critical, ErrorKind.Logical, "File system cannot be corrected",
             "NTFS found a problem in this volume's file system structure that it could not repair while the volume is in use.",
             "Back up the volume, then run a repair (chkdsk /f) from the Check Disk page.", scan: true);
@@ -352,27 +365,27 @@ internal static partial class RuleCatalog
             "A read or write failed and NTFS moved the data elsewhere, marking the original clusters as bad. This may indicate a failing disk.",
             backup);
         Add("ntfs:162", "Ntfs · Event 162", Tier.Critical, ErrorKind.Physical, "Data read does not match data written",
-            "Data read back from the drive differs from what was written. That is silent corruption, caused by the drive, its cable or controller, or faulty memory.",
+            "Data read back from the drive differs from what was written. That is silent corruption, usually caused by the drive, its cable or controller, or faulty memory.",
             "Back up the drive now. Check its health and cabling, and test the system memory.");
         Add("ntfs:163", "Ntfs · Event 163", Tier.Medium, ErrorKind.Logical, "MFT bitmap inconsistency",
-            "The NTFS master file table bitmap on this volume does not match the table it describes.",
+            "NTFS keeps a map of which entries in its master file table (the index of every file on the volume) are in use. On this volume the map and the table disagree.",
             "Run a scan on the volume.", scan: true);
         Add("ntfs:210", "Ntfs · Event 210", Tier.Low, ErrorKind.Logical, "Thin provisioning mapping repaired",
             "NTFS fixed a mapping problem on a thinly provisioned volume.",
-            "No action is needed.");
+            "No action is needed.", why: repairsRecur);
         Add("ntfs:211", "Ntfs · Event 211", Tier.High, ErrorKind.Logical, "Thin provisioning repair failed",
             "NTFS could not fix a mapping problem on a thinly provisioned volume, possibly because the pool is out of space.",
             "Free up or add capacity to the storage pool, then scan the volume.", scan: true);
 
         // --- ReFS ---------------------------------------------------------------------------------
         Add("refs:130", "ReFS · Event 130", Tier.Low, ErrorKind.Logical, "File system repaired",
-            "ReFS repaired a problem in the file system structure of this volume.", "No action is needed.");
+            "ReFS repaired a problem in the file system structure of this volume.", "No action is needed.", why: repairsRecur);
         Add("refs:131", "ReFS · Event 131", Tier.Critical, ErrorKind.Logical, "File system cannot be corrected",
             "ReFS found a problem in this volume's structure that it could not repair.",
             "Back up the volume and check the health of the drives behind it.");
         Add("refs:132", "ReFS · Event 132", Tier.Low, ErrorKind.Logical, "Checksum error corrected",
             "ReFS detected corrupted data and repaired it from a good copy.",
-            "No action is needed, but repeated corrections suggest a drive is degrading.");
+            "No action is needed, but repeated corrections suggest a drive is degrading.", why: repairsRecur);
         Add("refs:133", "ReFS · Event 133", Tier.Critical, ErrorKind.Physical, "Uncorrectable checksum error",
             "ReFS detected corrupted data and had no good copy to repair it from. The file named in the message is damaged.",
             "Restore the file from a backup and check the health of the drives behind this volume.");
@@ -453,14 +466,14 @@ internal static partial class RuleCatalog
             backup);
         Add("chkdsk:fixed", "Chkdsk result", Tier.Low, ErrorKind.Logical, "CHKDSK repaired the file system",
             "A file system check found problems on this volume and repaired them.",
-            "No action is needed. Repeated repairs on one volume are a reason to check the drive's health.");
+            "No action is needed. Repeated repairs on one volume are a reason to check the drive's health.", why: repairsRecur);
 
         // --- raised by Disk Monitor's own health checks ---------------------------------------------
         Add("smart:predict", HealthSource, Tier.Critical, ErrorKind.Health, "Drive failure predicted",
             "The drive's S.M.A.R.T. self-assessment reports that it is about to fail.",
             "Back up your data immediately and replace the drive.");
         Add("smart:reallocated", HealthSource, Tier.High, ErrorKind.Health, "Reallocated sectors increased",
-            "The drive replaced damaged sectors with spares. A growing count means the media is deteriorating.",
+            "The drive replaced damaged sectors with spares. A growing count usually means the drive's surface is wearing out.",
             backup);
         Add("smart:pending", HealthSource, Tier.High, ErrorKind.Health, "Pending sectors increased",
             "The drive has sectors it could not read reliably and is waiting to remap. Data in those sectors may already be lost.",
@@ -484,13 +497,13 @@ internal static partial class RuleCatalog
             "The drive has used almost all of its rated write endurance.",
             "Plan to replace the drive and keep its backups current.");
         Add("health:temperature", HealthSource, Tier.Medium, ErrorKind.Health, "Drive is running hot",
-            "The drive's temperature is above the warning threshold. Sustained heat shortens drive life and can cause throttling or errors.",
+            "The drive's temperature is above the warning threshold. Sustained heat can shorten a drive's life and cause slowdowns or errors.",
             "Improve airflow around the drive or add a heatsink. The threshold is adjustable in Settings.");
         Add("volume:dirty", HealthSource, Tier.Medium, ErrorKind.Logical, "Volume is marked dirty",
             "Windows flagged this volume as possibly inconsistent and will check it at the next restart.",
             "Restart when convenient to let Windows check the volume, or run a scan now.", scan: true);
         Add("volume:space", HealthSource, Tier.Low, ErrorKind.Capacity, "Volume is low on free space",
-            "Free space on this volume fell below the warning threshold.",
+            "Free space on this volume fell below the warning threshold set in Settings.",
             "Free up space or move data to another drive. The threshold is adjustable in Settings.");
 
         return rules;

@@ -43,6 +43,12 @@ internal sealed class AppSettings
     /// <summary>Minutes during which repeats of the same problem on the same device share one toast. 0 disables.</summary>
     public int CoalesceMinutes { get; set; } = 15;
 
+    // Quiet hours: toasts go silently to the notification centre. Times are minutes after midnight.
+    public bool QuietHoursEnabled { get; set; }
+    public int QuietHoursStart { get; set; } = 22 * 60;
+    public int QuietHoursEnd { get; set; } = 7 * 60;
+    public bool QuietHoursAllowCritical { get; set; } = true;
+
     // Monitoring
     public int HistoryDays { get; set; } = 30;
     public bool IncludeChkdskEvents { get; set; } = true;
@@ -63,10 +69,18 @@ internal sealed class AppSettings
     public bool ScanWithMoreResources { get; set; }
 
     // Window and view state
+    public const int DefaultDrawerWidth = 440;
+    public const int MinDrawerWidth = 360;
+    public const int MaxDrawerWidth = 640;
+    public static readonly string[] EventsGroupByChoices = ["Tier", "Drive", "None"];
+
+    /// <summary>Backs the Events page's Repeats drop-down: true is "Combine repeats".</summary>
     public bool GroupSimilar { get; set; } = true;
+    public string EventsGroupBy { get; set; } = "Tier";
+    public int DrawerWidth { get; set; } = DefaultDrawerWidth;
     public string LastPage { get; set; } = "Overview";
-    public int WindowWidth { get; set; } = 1140;
-    public int WindowHeight { get; set; } = 760;
+    public int WindowWidth { get; set; } = 1280;
+    public int WindowHeight { get; set; } = 800;
     public int WindowLeft { get; set; } = UnsetPosition;
     public int WindowTop { get; set; } = UnsetPosition;
     public bool WindowMaximized { get; set; }
@@ -101,7 +115,7 @@ internal sealed class AppSettings
     public bool TrySave() => JsonFile.TryWrite(AppPaths.SettingsFile, this, AppJsonContext.Default.AppSettings, "Settings save");
 
     // Hand-edited or older files can carry values the UI cannot represent.
-    private AppSettings Sanitize()
+    internal AppSettings Sanitize()
     {
         Theme = Theme is "System" or "Light" or "Dark" ? Theme : "System";
         Critical ??= new TierOptions { Sticky = true };
@@ -117,10 +131,22 @@ internal sealed class AppSettings
         RuleOverrides = RuleOverrides is null
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(RuleOverrides, StringComparer.OrdinalIgnoreCase);
+        QuietHoursStart = SnapToHalfHour(QuietHoursStart);
+        QuietHoursEnd = SnapToHalfHour(QuietHoursEnd);
+        EventsGroupBy = EventsGroupByChoices.FirstOrDefault(choice => choice.Equals(EventsGroupBy, StringComparison.OrdinalIgnoreCase)) ?? "Tier";
+        DrawerWidth = Math.Clamp(DrawerWidth, MinDrawerWidth, MaxDrawerWidth);
         LastPage ??= "Overview";
         WindowWidth = Math.Clamp(WindowWidth, 400, 16384);
         WindowHeight = Math.Clamp(WindowHeight, 300, 16384);
         return this;
+    }
+
+    // Quiet hours are chosen in 30-minute steps; anything else is snapped into the day and onto a step.
+    private static int SnapToHalfHour(int minutes)
+    {
+        int day = 24 * 60;
+        int wrapped = ((minutes % day) + day) % day;
+        return (int)Math.Round(wrapped / 30.0) * 30 % day;
     }
 
     private static int Nearest(int[] choices, int value) => choices.MinBy(choice => Math.Abs(choice - value));

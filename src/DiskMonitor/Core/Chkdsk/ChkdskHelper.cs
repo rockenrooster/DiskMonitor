@@ -64,7 +64,7 @@ internal static class ChkdskHelper
                 string[] job = (reader.ReadLine() ?? "").Split('|');
                 if (job.Length < 3 || job[0] != "JOB")
                 {
-                    Send("E|The scan request was not understood.");
+                    Send("E|" + Strings.ErrorRequestNotUnderstood);
                     return invalidParameter;
                 }
 
@@ -79,14 +79,14 @@ internal static class ChkdskHelper
                 moreResources = CommandLine.Has(args, "--perf");
                 if (!Enum.TryParse(CommandLine.Value(args, "--mode"), ignoreCase: true, out mode) || !Enum.IsDefined(mode))
                 {
-                    Send("E|The requested check is not supported.");
+                    Send("E|" + Strings.ErrorCheckNotSupported);
                     return invalidParameter;
                 }
             }
 
             if (volume is null)
             {
-                Send("E|That is not a drive letter.");
+                Send("E|" + Strings.ErrorNotDriveLetter);
                 return invalidParameter;
             }
 
@@ -134,7 +134,7 @@ internal static class ChkdskHelper
             }
             catch (OperationCanceledException)
             {
-                TrySend(Send, "E|Cancelled.");
+                TrySend(Send, "E|" + Strings.ErrorCancelled);
                 return 1;
             }
             catch (ChkdskException ex)

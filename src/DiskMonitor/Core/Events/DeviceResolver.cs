@@ -83,23 +83,27 @@ internal static partial class DeviceResolver
     /// <summary>Short device label shown beside an event, for example "C: · Samsung SSD 980 (Disk 0)".</summary>
     public static string Describe(int? diskNumber, PhysicalDisk? disk, string? letter)
     {
-        if (letter is not null && diskNumber is not null)
+        if (letter is not null && diskNumber is { } number)
         {
-            return disk is null ? $"{letter} · Disk {diskNumber}" : $"{letter} · {disk.DisplayName} (Disk {diskNumber})";
+            return disk is null
+                ? App.Strings.DeviceVolumeOnDisk(letter, number)
+                : App.Strings.DeviceVolumeOnNamedDisk(letter, disk.DisplayName, number);
         }
 
-        if (diskNumber is not null)
+        if (diskNumber is { } only)
         {
             if (disk is null)
             {
-                return $"Disk {diskNumber} (not connected)";
+                return App.Strings.DeviceDiskMissing(only);
             }
 
             string letters = disk.VolumeLetters;
-            return letters.Length == 0 ? $"Disk {diskNumber} · {disk.DisplayName}" : $"Disk {diskNumber} · {disk.DisplayName} ({letters})";
+            return letters.Length == 0
+                ? App.Strings.DeviceDisk(only, disk.DisplayName)
+                : App.Strings.DeviceDiskWithLetters(only, disk.DisplayName, letters);
         }
 
-        return letter is null ? "" : $"Volume {letter}";
+        return letter is null ? "" : App.Strings.DeviceVolume(letter);
     }
 
     [GeneratedRegex(@"\\Device\\Harddisk(\d+)\\DR\d+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]

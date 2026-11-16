@@ -33,6 +33,9 @@ internal sealed class ScanRecord
     public bool Clean { get; set; }
     public bool Automatic { get; set; }
     public string Summary { get; set; } = "";
+
+    /// <summary>A <see cref="Core.Chkdsk.ChkdskOutcome"/> name; empty in records written before it existed.</summary>
+    public string Outcome { get; set; } = "";
 }
 
 /// <summary>Everything Disk Monitor remembers between runs that is not a user setting.</summary>
@@ -58,6 +61,9 @@ internal sealed class PersistedState
     public DateTime SnoozeUntilUtc { get; set; }
     public string? UpdateNoticeVersion { get; set; }
     public bool StartupHintDismissed { get; set; }
+
+    /// <summary>The one-time "still running in the notification area" balloon has been shown.</summary>
+    public bool TrayHintShown { get; set; }
 }
 
 /// <summary>Thread-safe owner of <see cref="PersistedState"/> that saves shortly after each change.</summary>

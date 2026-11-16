@@ -90,11 +90,11 @@ internal sealed class ProactiveService : IDisposable
 
         if (_chkdsk.CanRunWithoutPrompt(ChkdskMode.Scan))
         {
-            _ = _chkdsk.RunAsync(letter, ChkdskMode.Scan, automatic: true);
+            _ = _chkdsk.RunAsync(letter, ChkdskMode.Scan, automatic: true, ScanTrigger.FileSystemError);
         }
         else
         {
-            _notifier.NotifyScanWanted(letter, $"{item.Title} was reported on this volume.");
+            _notifier.NotifyScanWanted(letter, Strings.ScanWantedReason(item.Title));
         }
     }
 
@@ -111,7 +111,7 @@ internal sealed class ProactiveService : IDisposable
             _state.Update(s => s.LastRoutineScanUtc = DateTime.UtcNow);
             foreach (VolumeInfo volume in _drives().Volumes.Where(v => v.SupportsOnlineScan && !v.Removable))
             {
-                ChkdskResult result = await _chkdsk.RunAsync(volume.Letter, ChkdskMode.Scan, automatic).ConfigureAwait(false);
+                ChkdskResult result = await _chkdsk.RunAsync(volume.Letter, ChkdskMode.Scan, automatic, automatic ? ScanTrigger.Routine : ScanTrigger.User).ConfigureAwait(false);
                 if (result.Cancelled || result.Error is not null)
                 {
                     break; // the user stopped it or declined approval: do not prompt once per volume

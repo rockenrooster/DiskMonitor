@@ -57,7 +57,7 @@ internal static class SelfCheck
             {
                 string serial = disk.Serial.Length > 4 ? "…" + disk.Serial[^4..] : disk.Serial;
                 output.WriteLine(
-                    $"       Disk {disk.Number}: {disk.DisplayName} | {disk.BusLabel} {disk.MediaLabel} | {Format.Bytes(disk.SizeBytes)} | sn {serial} | fw {disk.Firmware}" +
+                    $"       Disk {disk.Number}: {disk.DisplayName} | {disk.BusLabel} {disk.MediaLabel} | {Format.Size(disk.SizeBytes)} | sn {serial} | fw {disk.Firmware}" +
                     $" | health {disk.Health}{(disk.Asleep ? " (asleep)" : "")} | temp {disk.TemperatureC?.ToString("0") ?? "-"} C | life {disk.LifeRemainingPercent?.ToString() ?? "-"}%" +
                     $" | poh {disk.PowerOnHours?.ToString() ?? "-"} | realloc {disk.Reallocated?.ToString() ?? "-"} pend {disk.Pending?.ToString() ?? "-"} unc {disk.Uncorrectable?.ToString() ?? "-"}" +
                     $" crc {disk.CrcErrors?.ToString() ?? "-"} media {disk.MediaErrors?.ToString() ?? "-"} | smart attrs {disk.Attributes.Count} | predict {disk.PredictFailure?.ToString() ?? "-"}" +
@@ -71,7 +71,7 @@ internal static class SelfCheck
             foreach (VolumeInfo volume in drives.Volumes)
             {
                 output.WriteLine(
-                    $"       {volume.Letter} '{volume.Label}' {volume.FileSystem} | {Format.Bytes(volume.FreeBytes)} free of {Format.Bytes(volume.TotalBytes)}" +
+                    $"       {volume.Letter} '{volume.Label}' {volume.FileSystem} | {Format.Size(volume.FreeBytes)} free of {Format.Size(volume.TotalBytes)}" +
                     $" | dirty {volume.Dirty?.ToString() ?? "unknown"} | disks [{string.Join(",", volume.DiskNumbers)}] | {volume.NtDevice} | system {volume.IsSystem} | removable {volume.Removable}");
             }
         }

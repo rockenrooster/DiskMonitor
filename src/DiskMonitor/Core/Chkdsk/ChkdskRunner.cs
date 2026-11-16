@@ -24,19 +24,17 @@ internal enum ChkdskMode
 
 internal static class ChkdskModeExtensions
 {
-    public static string Label(this ChkdskMode mode) => mode switch
-    {
-        ChkdskMode.Scan => "Scan",
-        ChkdskMode.SpotFix => "Spot fix",
-        ChkdskMode.Fix => "Repair",
-        _ => "Repair and surface scan"
-    };
+    public static string Label(this ChkdskMode mode) => App.Strings.ModeName(mode);
 
     public static bool IsReadOnly(this ChkdskMode mode) => mode == ChkdskMode.Scan;
 }
 
 /// <summary>Raised for requests that cannot run at all, with a message fit to show the user.</summary>
-internal sealed class ChkdskException(string message) : Exception(message);
+internal sealed class ChkdskException(string message, bool declined = false) : Exception(message)
+{
+    /// <summary>The administrator prompt was declined, so nothing ran.</summary>
+    public bool Declined { get; } = declined;
+}
 
 /// <summary>Runs chkdsk.exe and reports its output line by line. Requires administrator rights.</summary>
 internal static partial class ChkdskRunner
@@ -62,7 +60,7 @@ internal static partial class ChkdskRunner
         bool ntfs = fileSystem.Equals("NTFS", StringComparison.OrdinalIgnoreCase);
         if (fileSystem.Equals("ReFS", StringComparison.OrdinalIgnoreCase))
         {
-            throw new ChkdskException("ReFS volumes repair themselves online and cannot be checked with CHKDSK.");
+            throw new ChkdskException(App.Strings.ErrorRefs);
         }
 
         return mode switch
@@ -70,7 +68,7 @@ internal static partial class ChkdskRunner
             ChkdskMode.Scan when ntfs => moreResources ? $"{volume} /scan /perf" : $"{volume} /scan",
             ChkdskMode.Scan => volume, // without switches chkdsk checks FAT and exFAT read-only
             ChkdskMode.SpotFix when ntfs => $"{volume} /spotfix",
-            ChkdskMode.SpotFix => throw new ChkdskException("Spot fix is only available on NTFS volumes."),
+            ChkdskMode.SpotFix => throw new ChkdskException(App.Strings.ErrorSpotFixNtfs),
             ChkdskMode.Fix => $"{volume} /f",
             _ => $"{volume} /r"
         };
@@ -89,11 +87,11 @@ internal static partial class ChkdskRunner
         Action<string, int?> onProgress,
         CancellationToken cancellation)
     {
-        string letter = NormalizeVolume(volume) ?? throw new ChkdskException("That is not a drive letter.");
+        string letter = NormalizeVolume(volume) ?? throw new ChkdskException(App.Strings.ErrorNotDriveLetter);
         DriveInfo drive = new(letter + "\\");
         if (drive.DriveType is not (DriveType.Fixed or DriveType.Removable) || !drive.IsReady)
         {
-            throw new ChkdskException($"Volume {letter} is not available.");
+            throw new ChkdskException(App.Strings.ErrorVolumeUnavailable(letter));
         }
 
         string arguments = BuildArguments(letter, mode, moreResources, drive.DriveFormat);
@@ -108,7 +106,7 @@ internal static partial class ChkdskRunner
             StandardErrorEncoding = ConsoleEncoding()
         };
 
-        using Process process = Process.Start(startInfo) ?? throw new ChkdskException("CHKDSK could not be started.");
+        using Process process = Process.Start(startInfo) ?? throw new ChkdskException(App.Strings.ErrorChkdskNoStart);
         using CancellationTokenRegistration killOnCancel = cancellation.Register(() =>
         {
             try

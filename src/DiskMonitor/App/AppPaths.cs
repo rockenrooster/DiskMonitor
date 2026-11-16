@@ -2,7 +2,7 @@ namespace DiskMonitor.App;
 
 internal static class AppPaths
 {
-    public const string AppName = "Disk Monitor";
+    public const string AppName = Strings.AppName;
 
     /// <summary>Identity Windows uses to group this app's toasts and taskbar button.</summary>
     public const string AppUserModelId = "Rockenrooster.DiskMonitor";

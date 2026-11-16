@@ -1,3 +1,4 @@
+using DiskMonitor.Core;
 using DiskMonitor.Core.Chkdsk;
 using DiskMonitor.Core.Drives;
 using DiskMonitor.Core.Events;
@@ -13,13 +14,15 @@ internal sealed class AppServices : IDisposable
 {
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromMinutes(10);
     private readonly System.Threading.Timer _heartbeat;
+    private readonly Action<Action> _postToUi;
     private bool _started;
 
     public AppServices(Action<Action> postToUi, bool demoMode)
     {
+        _postToUi = postToUi;
         DemoMode = demoMode;
         Settings = AppSettings.Load();
-        State = StateStore.Load();
+        State = StateStore.Load(persist: !demoMode);
         Events = new EventStore(State);
         Drives = new DriveMonitor(Settings, State, Events);
         Notifier = new NotificationService(Settings, State, postToUi) { Enabled = !demoMode };
@@ -49,8 +52,11 @@ internal sealed class AppServices : IDisposable
     public ProactiveService Proactive { get; }
     public UpdateService Updates { get; }
 
-    /// <summary>Set by the UI: true while the main window is in front of the user.</summary>
+    /// <summary>Set by the UI: true while the main window is in front of the user. Read on background threads.</summary>
     public Func<bool>? IsWindowActive { get; set; }
+
+    /// <summary>Raised on the UI thread when a scan the user is watching finishes, so the shell can show an in-app toast.</summary>
+    public event Action<ChkdskResult>? WatchedScanFinished;
 
     /// <summary>Begins monitoring in the background: drives first, so events can be matched to them.</summary>
     public void Start()
@@ -80,12 +86,70 @@ internal sealed class AppServices : IDisposable
         });
     }
 
-    /// <summary>Persists settings and tells the UI. Call on the UI thread.</summary>
+    /// <summary>Persists settings and tells the UI. Call on the UI thread. Demo mode never writes.</summary>
     public void SaveSettings()
     {
-        _ = Settings.TrySave();
+        if (!DemoMode)
+        {
+            _ = Settings.TrySave();
+        }
+
         SettingsChanged?.Invoke();
     }
+
+    /// <summary>Pushes a realistic sample event through the real pipeline. For development only (<c>--dev</c>).</summary>
+    public void InjectTestEvent(string kind)
+    {
+        string ruleId = kind.ToLowerInvariant() switch
+        {
+            "critical" => "disk:7",
+            "high" => "disk:51",
+            "medium" => "disk:153",
+            "low" => "ntfs:130",
+            "logical" => "ntfs:55",
+            _ => ""
+        };
+        if (RuleCatalog.Find(ruleId) is not { } rule)
+        {
+            return;
+        }
+
+        DriveSnapshot drives = Drives.Current;
+        bool logical = ruleId == "ntfs:55";
+        VolumeInfo? volume = logical ? drives.Volumes.FirstOrDefault(v => v.IsSystem) ?? drives.Volumes.FirstOrDefault() : null;
+        PhysicalDisk? disk = volume is { DiskNumbers.Count: > 0 } ? drives.FindDisk(volume.DiskNumbers[0]) : drives.Disks.FirstOrDefault();
+        DateTime now = Clock.UtcNow;
+        DiskEvent item = new()
+        {
+            Key = "test|" + now.Ticks,
+            TimeUtc = now,
+            Tier = RuleCatalog.ResolveTier(rule, Settings.RuleOverrides, out _) ?? rule.Tier,
+            Kind = rule.Kind,
+            RuleId = rule.Id,
+            Title = rule.Title,
+            Message = Strings.TestEventMessage,
+            Explanation = rule.Explanation,
+            WhyItMatters = RuleCatalog.WhyItMatters(rule),
+            Advice = rule.Advice,
+            Log = TestLog,
+            Provider = rule.Source,
+            EventId = 0,
+            DiskNumber = disk?.Number,
+            Volume = volume?.Letter,
+            DeviceText = DeviceResolver.Describe(disk?.Number, disk, volume?.Letter),
+            SuggestScan = logical && volume is not null,
+            Synthetic = false
+        };
+
+        // Such an event disappears at the next history reload, which is the intent.
+        if (Events.Add(item))
+        {
+            OnNewEvent(item);
+        }
+    }
+
+    /// <summary>Log name of injected test events; it names the source, it is not UI text.</summary>
+    public const string TestLog = "Test";
 
     /// <summary>Saves, then re-reads history because what counts as an event (or its tier) changed.</summary>
     public void SaveAndReloadEvents()
@@ -156,9 +220,14 @@ internal sealed class AppServices : IDisposable
             return;
         }
 
-        // Scans the user is watching need no toast; background ones report problems, and clean results on request.
+        // Scans the user is watching need no Windows toast; the shell shows an in-app one instead.
+        // Background ones report problems, and clean results on request.
         bool watching = !result.Automatic && IsWindowActive?.Invoke() == true;
-        if (!watching && (!result.Clean || !result.Automatic || Settings.NotifyCleanScan))
+        if (watching)
+        {
+            _postToUi(() => WatchedScanFinished?.Invoke(result));
+        }
+        else if (!result.Clean || !result.Automatic || Settings.NotifyCleanScan)
         {
             Notifier.NotifyScanResult(result.Volume, result.Clean, result.Summary);
         }

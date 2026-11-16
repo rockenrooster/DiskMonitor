@@ -26,6 +26,7 @@ internal static unsafe class ToastInterop
     private const int SlotNotifierSetting = 8; // IToastNotifier.get_Setting
     private const int SlotPutTag = 6; // IToastNotification2
     private const int SlotPutGroup = 8; // IToastNotification2
+    private const int SlotPutSuppressPopup = 10; // IToastNotification2 (windows.ui.notifications.h, SDK 10.0.22621)
 
     private static readonly Guid ToastManagerStaticsId = new("50AC103F-D235-4598-BBEF-98FE4D1A3AD4");
     private static readonly Guid ToastFactoryId = new("04124B20-82C6-4229-B109-FD9ED4662B53");
@@ -49,8 +50,12 @@ internal static unsafe class ToastInterop
     [DllImport("combase.dll", ExactSpelling = true)]
     private static extern int WindowsDeleteString(IntPtr hstring);
 
-    /// <summary>Shows a toast built from <paramref name="xml"/>. A toast with the same tag and group replaces the earlier one.</summary>
-    public static int Show(string appId, string xml, string? tag, string? group)
+    /// <summary>
+    /// Shows a toast built from <paramref name="xml"/>. A toast with the same tag and group replaces the
+    /// earlier one. With <paramref name="suppressPopup"/> the toast goes straight to the notification
+    /// centre without appearing on screen (quiet hours).
+    /// </summary>
+    public static int Show(string appId, string xml, string? tag, string? group, bool suppressPopup = false)
     {
         IntPtr document = IntPtr.Zero;
         IntPtr documentIo = IntPtr.Zero;
@@ -98,7 +103,7 @@ internal static unsafe class ToastInterop
             }
 
             toast = created;
-            if ((tag is not null || group is not null) && Marshal.QueryInterface(toast, in ToastNotification2Id, out toast2) >= 0)
+            if ((tag is not null || group is not null || suppressPopup) && Marshal.QueryInterface(toast, in ToastNotification2Id, out toast2) >= 0)
             {
                 if (tag is not null)
                 {
@@ -108,6 +113,12 @@ internal static unsafe class ToastInterop
                 if (group is not null)
                 {
                     _ = CallWithString(toast2, SlotPutGroup, group);
+                }
+
+                if (suppressPopup)
+                {
+                    // put_SuppressPopup(boolean); a WinRT boolean is one byte.
+                    _ = ((delegate* unmanaged[Stdcall]<IntPtr, byte, int>)Slot(toast2, SlotPutSuppressPopup))(toast2, 1);
                 }
             }
 

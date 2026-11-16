@@ -297,7 +297,7 @@ internal static class StorageNative
         return Encoding.ASCII.GetString(buffer, offset, end - offset);
     }
 
-    private static string ComposeModel(string vendor, string product, BusType bus)
+    internal static string ComposeModel(string vendor, string product, BusType bus)
     {
         string vendorName = vendor.Trim();
         string productName = product.Trim().TrimEnd('_');

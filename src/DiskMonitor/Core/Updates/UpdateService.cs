@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DiskMonitor.App;
+using DiskMonitor.Diagnostics;
 
 namespace DiskMonitor.Core.Updates;
 
@@ -102,10 +103,10 @@ internal sealed class UpdateService : IDisposable
 
     public async Task<string> DownloadLatestAsync(CancellationToken cancellationToken = default)
     {
-        UpdateCheckResult result = LastResult ?? throw new InvalidOperationException("Check for updates before downloading.");
+        UpdateCheckResult result = LastResult ?? throw new InvalidOperationException(Strings.UpdateCheckFirst);
         if (!result.CanDownload || result.DownloadUrl is null)
         {
-            throw new InvalidOperationException("No downloadable update is available.");
+            throw new InvalidOperationException(Strings.UpdateNothingToDownload);
         }
 
         return await DownloadSetupAsync(result, cancellationToken);
@@ -117,7 +118,7 @@ internal sealed class UpdateService : IDisposable
         UpdateCheckResult result = LastResult ?? await CheckAsync(cancellationToken);
         if (!result.CanInstall || result.DownloadUrl is null)
         {
-            throw new InvalidOperationException("No signed installer is available.");
+            throw new InvalidOperationException(Strings.UpdateNoInstaller);
         }
 
         return await DownloadSetupAsync(result, cancellationToken);
@@ -127,10 +128,10 @@ internal sealed class UpdateService : IDisposable
     {
         if (!File.Exists(setupPath))
         {
-            throw new FileNotFoundException("Downloaded update file was not found.", setupPath);
+            throw new FileNotFoundException(Strings.UpdateFileMissing, setupPath);
         }
 
-        UpdateCheckResult result = LastResult ?? throw new InvalidOperationException("Check for updates before installing.");
+        UpdateCheckResult result = LastResult ?? throw new InvalidOperationException(Strings.UpdateCheckFirst);
         ValidateDownloadedFile(setupPath, result);
 
         Process.Start(new ProcessStartInfo(setupPath)
@@ -152,7 +153,7 @@ internal sealed class UpdateService : IDisposable
     {
         if (string.IsNullOrWhiteSpace(result.AssetSha256) || result.AssetSizeBytes <= 0)
         {
-            throw new InvalidOperationException("Update metadata is incomplete.");
+            throw new InvalidOperationException(Strings.UpdateMetadataIncomplete);
         }
 
         SetDownloading(true, 0);
@@ -168,7 +169,7 @@ internal sealed class UpdateService : IDisposable
             long? total = response.Content.Headers.ContentLength;
             if (total is > 0 && total.Value != result.AssetSizeBytes)
             {
-                throw new InvalidOperationException("Downloaded update size does not match the signed manifest.");
+                throw new InvalidOperationException(Strings.UpdateSizeMismatch);
             }
 
             string hash;
@@ -192,7 +193,7 @@ internal sealed class UpdateService : IDisposable
                     received += read;
                     if (received > result.AssetSizeBytes)
                     {
-                        throw new InvalidOperationException("Downloaded update size does not match the signed manifest.");
+                        throw new InvalidOperationException(Strings.UpdateSizeMismatch);
                     }
 
                     SetDownloadProgress(received / (double)result.AssetSizeBytes * 100);
@@ -200,7 +201,7 @@ internal sealed class UpdateService : IDisposable
 
                 if (received != result.AssetSizeBytes)
                 {
-                    throw new InvalidOperationException("Downloaded update size does not match the signed manifest.");
+                    throw new InvalidOperationException(Strings.UpdateSizeMismatch);
                 }
 
                 hash = Convert.ToHexString(sha256.GetHashAndReset()).ToLowerInvariant();
@@ -208,7 +209,7 @@ internal sealed class UpdateService : IDisposable
 
             if (!hash.Equals(result.AssetSha256, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Downloaded update hash does not match the signed manifest.");
+                throw new InvalidOperationException(Strings.UpdateHashMismatch);
             }
 
             File.Move(tempPath, targetPath, overwrite: true);
@@ -239,13 +240,13 @@ internal sealed class UpdateService : IDisposable
             GitHubRelease? release = await JsonSerializer.DeserializeAsync<GitHubRelease>(stream, JsonOptions, cancellationToken);
             if (release is null || string.IsNullOrWhiteSpace(release.TagName))
             {
-                return StoreResult(UpdateCheckResult.Error(CurrentVersion, "GitHub returned an empty release response."));
+                return StoreResult(UpdateCheckResult.Error(CurrentVersion, Strings.UpdateError(Strings.UpdateEmptyResponse)));
             }
 
             string versionText = release.TagName.Trim();
             if (!TryParseVersion(versionText, out Version? latestVersion))
             {
-                return StoreResult(UpdateCheckResult.Error(CurrentVersion, $"Latest release tag {versionText} is not a version."));
+                return StoreResult(UpdateCheckResult.Error(CurrentVersion, Strings.UpdateError(Strings.UpdateBadTag(versionText))));
             }
 
             GitHubAsset? asset = SelectAsset(release.Assets, SetupAssetName);
@@ -258,7 +259,7 @@ internal sealed class UpdateService : IDisposable
             string? assetSha256 = null;
             Uri? downloadUrl = asset is null ? null : new Uri(asset.BrowserDownloadUrl);
             long assetSize = asset?.Size ?? 0;
-            string message = "Disk Monitor is up to date.";
+            string message = Strings.UpdateUpToDate;
 
             if (asset is not null && manifestAsset is not null && signatureAsset is not null)
             {
@@ -279,19 +280,20 @@ internal sealed class UpdateService : IDisposable
                     assetSize = manifest.SizeBytes;
                     canInstall = true;
                     canDownload = updateAvailable;
-                    message = updateAvailable ? "Update available." : message;
+                    message = updateAvailable ? Strings.UpdateAvailable(versionText.TrimStart('v', 'V')) : message;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    ErrorLog.Write("Update manifest", ex);
                     if (updateAvailable)
                     {
-                        message = $"Update found, but manifest validation failed: {ex.Message}.";
+                        message = Strings.UpdateUnverified;
                     }
                 }
             }
             else if (updateAvailable)
             {
-                message = "Update found, but signed update assets are missing.";
+                message = Strings.UpdateUnverified;
             }
 
             return StoreResult(new UpdateCheckResult(
@@ -314,8 +316,8 @@ internal sealed class UpdateService : IDisposable
         }
         catch (Exception ex)
         {
-            string reason = ex is OperationCanceledException ? "the request timed out" : ex.Message;
-            return StoreResult(UpdateCheckResult.Error(CurrentVersion, $"Update check failed: {reason}"));
+            string reason = ex is OperationCanceledException ? Strings.UpdateTimedOut : ex.Message;
+            return StoreResult(UpdateCheckResult.Error(CurrentVersion, Strings.UpdateError(reason)));
         }
         finally
         {
@@ -449,19 +451,19 @@ internal sealed class UpdateService : IDisposable
     {
         if (string.IsNullOrWhiteSpace(result.AssetSha256) || result.AssetSizeBytes <= 0)
         {
-            throw new InvalidOperationException("Update metadata is incomplete.");
+            throw new InvalidOperationException(Strings.UpdateMetadataIncomplete);
         }
 
         FileInfo file = new(path);
         if (file.Length != result.AssetSizeBytes)
         {
-            throw new InvalidOperationException("Downloaded update size does not match the signed manifest.");
+            throw new InvalidOperationException(Strings.UpdateSizeMismatch);
         }
 
         string hash = UpdateTrust.ComputeSha256Hex(path);
         if (!hash.Equals(result.AssetSha256, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Downloaded update hash does not match the signed manifest.");
+            throw new InvalidOperationException(Strings.UpdateHashMismatch);
         }
     }
 
@@ -522,7 +524,7 @@ internal sealed record UpdateCheckResult(
     public static UpdateCheckResult NotFound(Version currentVersion) => new(
         currentVersion,
         null,
-        "No release",
+        Strings.UpdateLatestNone,
         false,
         false,
         false,
@@ -531,12 +533,12 @@ internal sealed record UpdateCheckResult(
         null,
         0,
         null,
-        "No release has been published yet.");
+        Strings.UpdateNoRelease);
 
     public static UpdateCheckResult Error(Version currentVersion, string message) => new(
         currentVersion,
         null,
-        "Unknown",
+        Strings.UpdateLatestUnknown,
         false,
         false,
         false,

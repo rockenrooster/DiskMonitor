@@ -22,15 +22,20 @@ internal sealed record ToastRequest
     public string? Tag { get; init; }
     public string Group { get; init; } = "events";
     public Tier? Tier { get; init; }
+
+    /// <summary>Set for test toasts, which show whatever the snooze and quiet hours say.</summary>
+    public bool IgnoreQuietHours { get; init; }
 }
 
 /// <summary>
-/// Decides which events deserve a toast (tier options, snooze, repeat grouping, burst limit)
-/// and shows them. Safe to call from any thread.
+/// Decides which events deserve a toast (tier options, snooze, quiet hours, repeat grouping, burst
+/// limit) and shows them. Safe to call from any thread. Toast text never contains the raw event
+/// message, file names or paths: toasts can appear on the lock screen.
 /// </summary>
 internal sealed class NotificationService
 {
     private const int MaxToastsPerMinute = 4;
+    private const int MinutesPerDay = 24 * 60;
     private static readonly TimeSpan BurstNoticeInterval = TimeSpan.FromMinutes(5);
 
     private readonly AppSettings _settings;
@@ -51,16 +56,11 @@ internal sealed class NotificationService
         _snoozeUntilUtc = state.Read(s => s.SnoozeUntilUtc);
     }
 
+    /// <summary>Raised on the caller's thread when the snooze starts or ends.</summary>
     public event Action? SnoozeChanged;
 
-    /// <summary>False in previews and self-checks, where nothing may reach the user's screen.</summary>
+    /// <summary>False in demo, render and self-check runs, where nothing may reach the user's screen.</summary>
     public bool Enabled { get; set; } = true;
-
-    /// <summary>
-    /// Random per-run value embedded in the buttons of this run's toasts. A link that carries it
-    /// came from a toast this process showed, so it may trigger an action rather than just navigate.
-    /// </summary>
-    public string SessionToken { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
 
     /// <summary>Used when Windows rejects a toast: title, body, tier. Returns true if shown.</summary>
     public Func<string, string, Tier?, bool>? BalloonFallback { get; set; }
@@ -78,18 +78,59 @@ internal sealed class NotificationService
         }
     }
 
-    public bool IsSnoozed => DateTime.UtcNow < SnoozeUntilUtc;
+    public bool IsSnoozed => Clock.UtcNow < SnoozeUntilUtc;
+
+    /// <summary>True while quiet hours are on and the local time is inside them.</summary>
+    public bool IsQuietTime
+    {
+        get
+        {
+            if (!_settings.QuietHoursEnabled)
+            {
+                return false;
+            }
+
+            DateTime local = Clock.UtcNow.ToLocalTime();
+            return IsWithinQuietHours(_settings.QuietHoursStart, _settings.QuietHoursEnd, local.Hour * 60 + local.Minute);
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="nowMinutes"/> (minutes after midnight) falls in the window from
+    /// <paramref name="startMinutes"/> to <paramref name="endMinutes"/>. A window that crosses midnight
+    /// works; a window whose start equals its end is empty (quiet hours off).
+    /// </summary>
+    public static bool IsWithinQuietHours(int startMinutes, int endMinutes, int nowMinutes)
+    {
+        int start = Mod(startMinutes);
+        int end = Mod(endMinutes);
+        int now = Mod(nowMinutes);
+        if (start == end)
+        {
+            return false;
+        }
+
+        return start < end ? now >= start && now < end : now >= start || now < end;
+
+        static int Mod(int value) => ((value % MinutesPerDay) + MinutesPerDay) % MinutesPerDay;
+    }
 
     /// <summary>Silences toasts for a while; null resumes them. Events are still recorded.</summary>
     public void Snooze(TimeSpan? duration)
     {
-        DateTime until = duration is null ? DateTime.MinValue : DateTime.UtcNow + duration.Value;
+        DateTime until = duration is null ? DateTime.MinValue : Clock.UtcNow + duration.Value;
+        SnoozeUntil(until);
+    }
+
+    /// <summary>Silences toasts until a moment (UTC); <see cref="DateTime.MinValue"/> resumes them.</summary>
+    public void SnoozeUntil(DateTime untilUtc)
+    {
         lock (_gate)
         {
-            _snoozeUntilUtc = until;
+            _snoozeUntilUtc = untilUtc;
         }
 
-        _state.Update(s => s.SnoozeUntilUtc = until);
+        _state.Update(s => s.SnoozeUntilUtc = untilUtc);
         SnoozeChanged?.Invoke();
     }
 
@@ -127,7 +168,7 @@ internal sealed class NotificationService
         lock (_gate)
         {
             DateTime now = DateTime.UtcNow;
-            if (now < _snoozeUntilUtc || IsSuppressedLocked(item, now))
+            if (Clock.UtcNow < _snoozeUntilUtc || IsSuppressedLocked(item, now))
             {
                 return;
             }
@@ -183,12 +224,12 @@ internal sealed class NotificationService
         {
             Show(new ToastRequest
             {
-                Title = "Disk events are arriving rapidly",
-                Line1 = "More disk problems are being logged than can be shown one by one.",
-                Line2 = "Open Disk Monitor to review them.",
-                Attribution = AppPaths.AppName,
+                Title = Strings.ToastBurstTitle,
+                Line1 = Strings.ToastBurstLine1,
+                Line2 = Strings.ToastBurstLine2,
+                Attribution = Strings.AppName,
                 LaunchUri = AppLinks.ForPage("Events"),
-                Actions = [new ToastAction("Review events", AppLinks.ForPage("Events"))],
+                Actions = [new ToastAction(Strings.ActionReviewEvents, AppLinks.ForPage("Events"))],
                 Silent = true,
                 Tag = "burst",
                 Tier = item.Tier
@@ -217,20 +258,17 @@ internal sealed class NotificationService
         string breakdown = string.Join(", ", TierExtensions.Descending
             .Select(tier => (tier, count: missed.Count(e => e.Tier == tier)))
             .Where(p => p.count > 0)
-            .Select(p => $"{p.count:N0} {p.tier.Label().ToLowerInvariant()}"));
+            .Select(p => Strings.ToastMissedPart(p.count, p.tier)));
         DiskEvent newest = missed.MaxBy(e => e.TimeUtc)!;
-        string latest = newest.DeviceText.Length > 0 ? $"Latest: {newest.Title} · {newest.DeviceText}" : $"Latest: {newest.Title}";
 
         Show(new ToastRequest
         {
-            Title = firstRun
-                ? $"Found {Format.Count(missed.Count, "disk problem")} in recent history"
-                : $"{Format.Count(missed.Count, "disk problem")} while Disk Monitor was not running",
+            Title = Strings.ToastMissedTitle(missed.Count, firstRun),
             Line1 = breakdown,
-            Line2 = latest,
-            Attribution = AppPaths.AppName,
+            Line2 = Strings.ToastLatest(newest.Title, newest.DeviceText),
+            Attribution = Strings.AppName,
             LaunchUri = AppLinks.ForPage("Events"),
-            Actions = [new ToastAction("Review events", AppLinks.ForPage("Events"))],
+            Actions = [new ToastAction(Strings.ActionReviewEvents, AppLinks.ForPage("Events"))],
             Silent = !options.Sound,
             Sticky = options.Sticky,
             Tag = "missed",
@@ -247,11 +285,11 @@ internal sealed class NotificationService
 
         Show(new ToastRequest
         {
-            Title = clean ? $"Scan of {volume} found no problems" : $"Scan of {volume} needs your attention",
+            Title = Strings.ToastScanTitle(volume, clean),
             Line1 = summary,
-            Attribution = "Check Disk",
+            Attribution = Strings.AttributionCheckDisk,
             LaunchUri = AppLinks.ForPage("CheckDisk"),
-            Actions = [new ToastAction("Open Check Disk", AppLinks.ForPage("CheckDisk"))],
+            Actions = [new ToastAction(Strings.ActionOpenCheckDisk, AppLinks.ForPage("CheckDisk"))],
             Silent = clean || !_settings.High.Sound,
             Tag = "scan-" + volume.TrimEnd(':'),
             Group = "scans",
@@ -259,7 +297,7 @@ internal sealed class NotificationService
         });
     }
 
-    /// <summary>Asks for approval when a scan is wanted but cannot run without an administrator prompt.</summary>
+    /// <summary>Offers a scan when one is wanted but cannot run without an administrator prompt.</summary>
     public void NotifyScanWanted(string volume, string reason)
     {
         if (IsSnoozed)
@@ -269,15 +307,15 @@ internal sealed class NotificationService
 
         Show(new ToastRequest
         {
-            Title = $"Scan {volume} for file system errors?",
+            Title = Strings.ToastScanWantedTitle(volume),
             Line1 = reason,
-            Line2 = "The scan is read-only and needs administrator approval.",
-            Attribution = "Check Disk",
-            LaunchUri = AppLinks.ForPage("CheckDisk"),
+            Line2 = Strings.ToastScanWantedLine2,
+            Attribution = Strings.AttributionCheckDisk,
+            LaunchUri = AppLinks.ForScan(volume),
             Actions =
             [
-                new ToastAction($"Scan {volume}", AppLinks.ForScan(volume, SessionToken)),
-                new ToastAction("Not now", "", Dismiss: true)
+                new ToastAction(Strings.ActionScanVolume(volume), AppLinks.ForScan(volume)),
+                new ToastAction(Strings.ActionNotNow, "", Dismiss: true)
             ],
             Silent = true,
             Tag = "scan-ask-" + volume.TrimEnd(':'),
@@ -294,11 +332,11 @@ internal sealed class NotificationService
 
         Show(new ToastRequest
         {
-            Title = "Routine disk scan is due",
-            Line1 = "Open Check Disk to scan your volumes for file system errors.",
-            Attribution = "Check Disk",
+            Title = Strings.ToastRoutineTitle,
+            Line1 = Strings.ToastRoutineLine1,
+            Attribution = Strings.AttributionCheckDisk,
             LaunchUri = AppLinks.ForPage("CheckDisk"),
-            Actions = [new ToastAction("Open Check Disk", AppLinks.ForPage("CheckDisk"))],
+            Actions = [new ToastAction(Strings.ActionOpenCheckDisk, AppLinks.ForPage("CheckDisk"))],
             Silent = true,
             Tag = "routine",
             Group = "scans"
@@ -309,62 +347,58 @@ internal sealed class NotificationService
     {
         Show(new ToastRequest
         {
-            Title = $"Disk Monitor {version} is available",
-            Line1 = "Open Settings to download and install the update.",
-            Attribution = AppPaths.AppName,
+            Title = Strings.ToastUpdateTitle(version),
+            Line1 = Strings.ToastUpdateLine1,
+            Attribution = Strings.AppName,
             LaunchUri = AppLinks.ForPage("Settings"),
-            Actions = [new ToastAction("Open Settings", AppLinks.ForPage("Settings"))],
+            Actions = [new ToastAction(Strings.ActionOpenSettings, AppLinks.ForPage("Settings"))],
             Silent = true,
             Tag = "update",
             Group = "app"
         });
     }
 
-    /// <summary>Shows a sample toast for a tier, ignoring snooze, so its options can be tried out.</summary>
+    /// <summary>Shows a sample toast for a tier, ignoring snooze and quiet hours, so its options can be tried out.</summary>
     public void SendTest(Tier tier)
     {
         TierOptions options = _settings.OptionsFor(tier);
         Show(new ToastRequest
         {
-            Title = $"{tier.Label()}: Test notification",
-            Line1 = "Disk 0 · Example drive (C:)",
-            Line2 = $"This is how a {tier.Label().ToLowerInvariant()} disk alert looks and sounds.",
-            Attribution = "Disk Monitor · Test",
+            Title = Strings.ToastTestTitle(tier),
+            Line1 = Strings.ToastTestLine1,
+            Line2 = Strings.ToastTestLine2(tier),
+            Attribution = Strings.AttributionTest,
             LaunchUri = AppLinks.ForPage("Settings"),
-            Actions = [new ToastAction("Open Disk Monitor", AppLinks.ForPage("Overview"))],
+            Actions = [new ToastAction(Strings.ActionOpenApp, AppLinks.ForPage("Overview"))],
             Silent = !options.Sound,
             Sticky = options.Sticky,
             Tag = "test",
             Group = "app",
-            Tier = tier
+            Tier = tier,
+            IgnoreQuietHours = true
         });
     }
 
     public ToastSetting QueryWindowsSetting() => Enabled ? ToastInterop.QuerySetting(AppPaths.AppUserModelId) : ToastSetting.Unknown;
 
-    private ToastRequest BuildEventToast(DiskEvent item, int repeats, TierOptions options)
+    /// <summary>
+    /// The toast for one event. Line 1 names the device (or the kind of problem), line 2 says what to
+    /// do. The event message never appears: it can hold file names and paths.
+    /// </summary>
+    internal static ToastRequest BuildEventToast(DiskEvent item, int repeats, TierOptions options)
     {
-        string title = $"{item.Tier.Label()}: {item.Title}";
-        if (repeats > 0)
-        {
-            title += $" (+{repeats:N0} more)";
-        }
-
-        List<ToastAction> actions = [new("View details", AppLinks.ForEvent(item.Key))];
+        List<ToastAction> actions = [new(Strings.ActionViewDetails, AppLinks.ForEvent(item.Key))];
         if (item.SuggestScan && item.Volume is not null)
         {
-            actions.Add(new ToastAction($"Scan {item.Volume}", AppLinks.ForScan(item.Volume, SessionToken)));
+            actions.Add(new ToastAction(Strings.ActionScanVolume(item.Volume), AppLinks.ForScan(item.Volume)));
         }
 
-        actions.Add(new ToastAction("Snooze 1 hour", AppLinks.ForSnooze(60, SessionToken)));
-
-        bool hasDevice = item.DeviceText.Length > 0;
         return new ToastRequest
         {
-            Title = title,
-            Line1 = hasDevice ? item.DeviceText : Format.SingleLine(item.Message, 160),
-            Line2 = item.Advice.Length > 0 ? Format.SingleLine(item.Advice, 180) : (hasDevice ? Format.SingleLine(item.Message, 160) : ""),
-            Attribution = item.Synthetic ? "Disk Monitor · Health check" : $"{item.Log} log · {item.Provider} {item.EventId}",
+            Title = Strings.ToastEventTitle(item.Tier, item.Title, repeats),
+            Line1 = item.DeviceText.Length > 0 ? item.DeviceText : item.Kind.Label(),
+            Line2 = Format.SingleLine(item.Advice, 180),
+            Attribution = item.Synthetic ? Strings.AttributionHealthCheck : Strings.AttributionLog(item.Log, item.Provider, item.EventId),
             LaunchUri = AppLinks.ForEvent(item.Key),
             Actions = actions,
             Silent = !options.Sound,
@@ -381,18 +415,27 @@ internal sealed class NotificationService
             return;
         }
 
+        // During quiet hours a toast lands silently in the notification centre without popping up.
+        // A Critical one still pops up when the user allows it. Balloons always pop up, so they are skipped.
+        bool quiet = !request.IgnoreQuietHours && IsQuietTime
+            && !(request.Tier == Tier.Critical && _settings.QuietHoursAllowCritical);
+        if (quiet)
+        {
+            request = request with { Silent = true, Sticky = false };
+        }
+
         _postToUi(() =>
         {
             try
             {
-                int hr = ToastInterop.Show(AppPaths.AppUserModelId, BuildXml(request), request.Tag, request.Group);
+                int hr = ToastInterop.Show(AppPaths.AppUserModelId, BuildXml(request), request.Tag, request.Group, suppressPopup: quiet);
                 if (hr >= 0)
                 {
                     LastError = null;
                     return;
                 }
 
-                LastError = $"Windows rejected the notification (0x{hr:X8}).";
+                LastError = Strings.ToastRejected(hr);
                 ErrorLog.Write("Toast", LastError);
             }
             catch (Exception ex)
@@ -401,8 +444,11 @@ internal sealed class NotificationService
                 ErrorLog.Write("Toast", ex);
             }
 
-            string body = string.Join(Environment.NewLine, new[] { request.Line1, request.Line2 }.Where(line => line.Length > 0));
-            _ = BalloonFallback?.Invoke(request.Title, body, request.Tier);
+            if (!quiet)
+            {
+                string body = string.Join(Environment.NewLine, new[] { request.Line1, request.Line2 }.Where(line => line.Length > 0));
+                _ = BalloonFallback?.Invoke(request.Title, body, request.Tier);
+            }
         });
     }
 

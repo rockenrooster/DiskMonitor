@@ -43,6 +43,9 @@ internal sealed record DiskEvent
     public required string Title { get; init; }
     public required string Message { get; init; }
     public string Explanation { get; init; } = "";
+
+    /// <summary>Why the problem matters: from the rule, or the default for its kind.</summary>
+    public string WhyItMatters { get; init; } = "";
     public string Advice { get; init; } = "";
     public string Log { get; init; } = "";
     public string Provider { get; init; } = "";
@@ -75,22 +78,11 @@ internal static class TierExtensions
 {
     public static readonly Tier[] Descending = [Tier.Critical, Tier.High, Tier.Medium, Tier.Low];
 
-    public static string Label(this Tier tier) => tier switch
-    {
-        Tier.Critical => "Critical",
-        Tier.High => "High",
-        Tier.Medium => "Medium",
-        _ => "Low"
-    };
+    public static readonly ErrorKind[] Kinds = [ErrorKind.Physical, ErrorKind.Logical, ErrorKind.Health, ErrorKind.Capacity, ErrorKind.Other];
+
+    public static string Label(this Tier tier) => App.Strings.TierName(tier);
 
     public static Tier Lower(this Tier tier) => tier == Tier.Low ? Tier.Low : tier - 1;
 
-    public static string Label(this ErrorKind kind) => kind switch
-    {
-        ErrorKind.Physical => "Physical",
-        ErrorKind.Logical => "File system",
-        ErrorKind.Health => "Drive health",
-        ErrorKind.Capacity => "Capacity",
-        _ => "Storage"
-    };
+    public static string Label(this ErrorKind kind) => App.Strings.KindName(kind);
 }

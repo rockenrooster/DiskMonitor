@@ -137,6 +137,7 @@ internal sealed class EventLogMonitor : IDisposable
             Title = rule.Title,
             Message = message,
             Explanation = rule.Explanation,
+            WhyItMatters = RuleCatalog.WhyItMatters(rule),
             Advice = rule.Advice,
             Log = log,
             Provider = provider,
@@ -232,7 +233,7 @@ internal sealed class EventLogMonitor : IDisposable
         }
         catch (Exception ex) when (ex is EventLogException or UnauthorizedAccessException or InvalidOperationException)
         {
-            LastError = $"Could not read the {log} log: {ex.Message}";
+            LastError = App.Strings.MonitorReadFailed(log, ex.Message);
             ErrorLog.Write($"Read {log} log", ex);
         }
     }
@@ -257,7 +258,7 @@ internal sealed class EventLogMonitor : IDisposable
         }
         catch (Exception ex)
         {
-            LastError = $"Could not watch the {log} log: {ex.Message}";
+            LastError = App.Strings.MonitorWatchFailed(log, ex.Message);
             ErrorLog.Write($"Watch {log} log", ex);
         }
     }

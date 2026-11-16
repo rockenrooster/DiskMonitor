@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using DiskMonitor.App;
 using DiskMonitor.Diagnostics;
 using Microsoft.Win32.SafeHandles;
 
@@ -62,65 +63,65 @@ internal static class DriveScanner
 
         if (disk.PredictFailure == true)
         {
-            Raise(HealthStatus.Bad, "The drive predicts its own failure (S.M.A.R.T.)");
+            Raise(HealthStatus.Bad, Strings.NoteFailurePredicted);
         }
 
         if (disk.NvmeCriticalWarning is { } warning)
         {
             if ((warning & 0x01) != 0)
             {
-                Raise(HealthStatus.Bad, "Spare capacity is below the drive's threshold");
+                Raise(HealthStatus.Bad, Strings.NoteSpareLow);
             }
 
             if ((warning & 0x04) != 0)
             {
-                Raise(HealthStatus.Bad, "The drive reports degraded reliability");
+                Raise(HealthStatus.Bad, Strings.NoteReliability);
             }
 
             if ((warning & 0x08) != 0)
             {
-                Raise(HealthStatus.Bad, "The drive has switched to read-only mode");
+                Raise(HealthStatus.Bad, Strings.NoteReadOnly);
             }
 
             if ((warning & 0x10) != 0)
             {
-                Raise(HealthStatus.Bad, "The drive's volatile memory backup has failed");
+                Raise(HealthStatus.Bad, Strings.NoteBackupFailed);
             }
 
             if ((warning & 0x02) != 0)
             {
-                Raise(HealthStatus.Caution, "Temperature is outside the drive's own limits");
+                Raise(HealthStatus.Caution, Strings.NoteTemperatureFlag);
             }
         }
 
         if (disk.Reallocated > 0)
         {
-            Raise(HealthStatus.Caution, Count(disk.Reallocated.Value, "reallocated sector"));
+            Raise(HealthStatus.Caution, Strings.NoteReallocated(disk.Reallocated.Value));
         }
 
         if (disk.Pending > 0)
         {
-            Raise(HealthStatus.Caution, Count(disk.Pending.Value, "sector") + " pending reallocation");
+            Raise(HealthStatus.Caution, Strings.NotePending(disk.Pending.Value));
         }
 
         if (disk.Uncorrectable > 0)
         {
-            Raise(HealthStatus.Caution, Count(disk.Uncorrectable.Value, "uncorrectable sector"));
+            Raise(HealthStatus.Caution, Strings.NoteUncorrectable(disk.Uncorrectable.Value));
         }
 
         if (disk.MediaErrors > 0)
         {
-            Raise(HealthStatus.Caution, Count(disk.MediaErrors.Value, "media error"));
+            Raise(HealthStatus.Caution, Strings.NoteMediaErrors(disk.MediaErrors.Value));
         }
 
         if (disk.LifeRemainingPercent is <= 10)
         {
-            Raise(HealthStatus.Caution, $"{disk.LifeRemainingPercent}% of rated life remaining");
+            Raise(HealthStatus.Caution, Strings.NoteLifeRemaining(disk.LifeRemainingPercent.Value));
         }
 
         if (disk.TemperatureC is { } temperature && temperature >= temperatureWarningC)
         {
-            Raise(HealthStatus.Caution, $"Temperature {temperature:0} °C is at or above the {temperatureWarningC} °C warning level");
+            Raise(HealthStatus.Caution, Strings.NoteHot(temperature, temperatureWarningC));
         }
 
         return disk with { Health = status, HealthNotes = notes };
@@ -428,5 +429,4 @@ internal static class DriveScanner
 
     private static long ClampToLong(ulong value) => value > long.MaxValue ? long.MaxValue : (long)value;
 
-    private static string Count(long value, string noun) => value == 1 ? $"1 {noun}" : $"{value:N0} {noun}s";
 }

@@ -14,12 +14,17 @@ internal sealed class DriveMonitor : IDisposable
     private const double LowSpaceHysteresisPercent = 2;
     private const long SmallestVolumeForSpaceAlerts = 8L * 1024 * 1024 * 1024;
 
+    /// <summary>Log and provider names of health-check events; they name the source, they are not UI text.</summary>
+    public const string HealthLog = "Disk Monitor";
+    public const string HealthProvider = "Health check";
+
     private readonly AppSettings _settings;
     private readonly StateStore _state;
     private readonly EventStore _store;
     private readonly System.Threading.Timer _timer;
     private readonly Lock _scanGate = new();
     private volatile DriveSnapshot _current = DriveSnapshot.Empty;
+    private volatile bool _refreshing;
 
     public DriveMonitor(AppSettings settings, StateStore state, EventStore store)
     {
@@ -29,13 +34,16 @@ internal sealed class DriveMonitor : IDisposable
         _timer = new System.Threading.Timer(_ => SafeRefresh(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
-    /// <summary>Raised after every scan, on a background thread.</summary>
+    /// <summary>Raised when a scan starts and after every scan, on a background thread.</summary>
     public event Action? Updated;
 
     /// <summary>A drive or volume condition got worse.</summary>
     public event Action<DiskEvent>? AlertRaised;
 
     public DriveSnapshot Current => _current;
+
+    /// <summary>True while a drive scan runs, so the Drives page can show that it is checking.</summary>
+    public bool IsRefreshing => _refreshing;
 
     /// <summary>Replaces the snapshot without scanning. Used by demo mode.</summary>
     public void SetSnapshot(DriveSnapshot snapshot)
@@ -61,9 +69,18 @@ internal sealed class DriveMonitor : IDisposable
     {
         lock (_scanGate)
         {
-            DriveSnapshot snapshot = DriveScanner.Scan(_settings.TemperatureWarningC, _current);
-            _current = snapshot;
-            DetectAlerts(snapshot);
+            _refreshing = true;
+            Updated?.Invoke();
+            try
+            {
+                DriveSnapshot snapshot = DriveScanner.Scan(_settings.TemperatureWarningC, _current);
+                _current = snapshot;
+                DetectAlerts(snapshot);
+            }
+            finally
+            {
+                _refreshing = false;
+            }
         }
 
         Updated?.Invoke();
@@ -124,7 +141,7 @@ internal sealed class DriveMonitor : IDisposable
         baseline ??= state.Disks[disk.Key] = new DiskBaseline();
         List<string> existing = [];
 
-        void Counter(long? value, long previous, Action<long> store, string ruleId, string noun, bool reportExisting)
+        void Counter(long? value, long previous, Action<long> store, string ruleId, string counter, bool reportExisting)
         {
             if (value is not { } current)
             {
@@ -135,32 +152,32 @@ internal sealed class DriveMonitor : IDisposable
             {
                 if (current > 0 && reportExisting)
                 {
-                    existing.Add($"{noun}: {current:N0}");
+                    existing.Add(Strings.AlertExistingPart(counter, current));
                 }
             }
             else if (current > previous)
             {
-                AddAlert(alerts, ruleId, $"{Capitalize(noun)} on {disk.DisplayName} rose from {previous:N0} to {current:N0}.", disk, null);
+                AddAlert(alerts, ruleId, Strings.AlertCounterRose(counter, disk.DisplayName, previous, current), disk, null);
             }
 
             store(current);
         }
 
-        Counter(disk.Reallocated, baseline.Reallocated, v => baseline.Reallocated = v, "smart:reallocated", "reallocated sectors", reportExisting: true);
-        Counter(disk.Pending, baseline.Pending, v => baseline.Pending = v, "smart:pending", "pending sectors", reportExisting: true);
-        Counter(disk.Uncorrectable, baseline.Uncorrectable, v => baseline.Uncorrectable = v, "smart:uncorrectable", "uncorrectable sectors", reportExisting: true);
-        Counter(disk.MediaErrors, baseline.MediaErrors, v => baseline.MediaErrors = v, "nvme:media", "media errors", reportExisting: true);
-        Counter(disk.CrcErrors, baseline.CrcErrors, v => baseline.CrcErrors = v, "smart:crc", "interface CRC errors", reportExisting: false);
+        Counter(disk.Reallocated, baseline.Reallocated, v => baseline.Reallocated = v, "smart:reallocated", Strings.CounterReallocated, reportExisting: true);
+        Counter(disk.Pending, baseline.Pending, v => baseline.Pending = v, "smart:pending", Strings.CounterPending, reportExisting: true);
+        Counter(disk.Uncorrectable, baseline.Uncorrectable, v => baseline.Uncorrectable = v, "smart:uncorrectable", Strings.CounterUncorrectable, reportExisting: true);
+        Counter(disk.MediaErrors, baseline.MediaErrors, v => baseline.MediaErrors = v, "nvme:media", Strings.CounterMediaErrors, reportExisting: true);
+        Counter(disk.CrcErrors, baseline.CrcErrors, v => baseline.CrcErrors = v, "smart:crc", Strings.CounterCrcErrors, reportExisting: false);
 
         if (existing.Count > 0)
         {
-            AddAlert(alerts, "smart:existing", $"{disk.DisplayName} already reports {string.Join(", ", existing)}.", disk, null);
+            AddAlert(alerts, "smart:existing", Strings.AlertExisting(disk.DisplayName, existing), disk, null);
         }
 
         bool predicted = disk.PredictFailure == true;
         if (predicted && !baseline.PredictFailure)
         {
-            AddAlert(alerts, "smart:predict", $"{disk.DisplayName} reports that it is about to fail.", disk, null);
+            AddAlert(alerts, "smart:predict", Strings.AlertPredict(disk.DisplayName), disk, null);
         }
 
         baseline.PredictFailure = predicted;
@@ -169,7 +186,7 @@ internal sealed class DriveMonitor : IDisposable
         int newFlags = warning & ~baseline.CriticalWarning;
         if (newFlags != 0)
         {
-            AddAlert(alerts, "nvme:critical", $"{disk.DisplayName}: {string.Join("; ", DescribeWarningFlags(newFlags))}.", disk, null);
+            AddAlert(alerts, "nvme:critical", Strings.AlertNvme(disk.DisplayName, DescribeWarningFlags(newFlags)), disk, null);
         }
 
         baseline.CriticalWarning = warning;
@@ -178,7 +195,7 @@ internal sealed class DriveMonitor : IDisposable
         {
             if (life <= 10 && !baseline.WearAlerted)
             {
-                AddAlert(alerts, "health:wear", $"{disk.DisplayName} has {life}% of its rated life remaining.", disk, null);
+                AddAlert(alerts, "health:wear", Strings.AlertWear(disk.DisplayName, life), disk, null);
                 baseline.WearAlerted = true;
             }
             else if (life > 10)
@@ -192,7 +209,7 @@ internal sealed class DriveMonitor : IDisposable
             int threshold = _settings.TemperatureWarningC;
             if (temperature >= threshold && !baseline.HotAlerted)
             {
-                AddAlert(alerts, "health:temperature", $"{disk.DisplayName} is at {temperature:0} °C (warning level {threshold} °C).", disk, null);
+                AddAlert(alerts, "health:temperature", Strings.AlertHot(disk.DisplayName, temperature, threshold), disk, null);
                 baseline.HotAlerted = true;
             }
             else if (temperature <= threshold - TemperatureHysteresisC)
@@ -214,7 +231,7 @@ internal sealed class DriveMonitor : IDisposable
 
         if (volume.Dirty == true && !baseline.DirtyAlerted)
         {
-            AddAlert(alerts, "volume:dirty", $"Volume {volume.DisplayName} is marked dirty. Windows will check it at the next restart.", disk, volume);
+            AddAlert(alerts, "volume:dirty", Strings.AlertDirty(volume.DisplayName), disk, volume);
             baseline.DirtyAlerted = true;
         }
         else if (volume.Dirty == false)
@@ -226,12 +243,7 @@ internal sealed class DriveMonitor : IDisposable
         bool eligible = threshold > 0 && !volume.Removable && volume.TotalBytes >= SmallestVolumeForSpaceAlerts;
         if (eligible && volume.FreePercent < threshold && !baseline.LowSpaceAlerted)
         {
-            AddAlert(
-                alerts,
-                "volume:space",
-                $"Volume {volume.DisplayName} has {Format.Bytes(volume.FreeBytes)} free of {Format.Bytes(volume.TotalBytes)} ({volume.FreePercent:0.#}%).",
-                disk,
-                volume);
+            AddAlert(alerts, "volume:space", Strings.AlertLowSpace(volume.DisplayName, volume.FreeBytes, volume.TotalBytes, volume.FreePercent), disk, volume);
             baseline.LowSpaceAlerted = true;
         }
         else if (!eligible || volume.FreePercent >= threshold + LowSpaceHysteresisPercent)
@@ -248,7 +260,7 @@ internal sealed class DriveMonitor : IDisposable
             return;
         }
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = Clock.UtcNow;
         int? diskNumber = disk?.Number;
         alerts.Add(new DiskEvent
         {
@@ -260,9 +272,10 @@ internal sealed class DriveMonitor : IDisposable
             Title = rule.Title,
             Message = message,
             Explanation = rule.Explanation,
+            WhyItMatters = RuleCatalog.WhyItMatters(rule),
             Advice = rule.Advice,
-            Log = "Disk Monitor",
-            Provider = "Health check",
+            Log = HealthLog,
+            Provider = HealthProvider,
             DiskNumber = diskNumber,
             Volume = volume?.Letter,
             DeviceText = DeviceResolver.Describe(diskNumber, disk, volume?.Letter),
@@ -275,24 +288,22 @@ internal sealed class DriveMonitor : IDisposable
     {
         if ((flags & 0x01) != 0)
         {
-            yield return "spare capacity has fallen below the drive's threshold";
+            yield return Strings.FlagSpare;
         }
 
         if ((flags & 0x04) != 0)
         {
-            yield return "reliability is degraded";
+            yield return Strings.FlagReliability;
         }
 
         if ((flags & 0x08) != 0)
         {
-            yield return "the drive has switched to read-only mode";
+            yield return Strings.FlagReadOnly;
         }
 
         if ((flags & 0x10) != 0)
         {
-            yield return "the volatile memory backup has failed";
+            yield return Strings.FlagBackup;
         }
     }
-
-    private static string Capitalize(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 }
