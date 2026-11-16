@@ -199,7 +199,7 @@ internal sealed class Chip : InteractiveKitControl
         if (!string.IsNullOrEmpty(count))
         {
             x += Draw.TextWidth(text, font) + 6 * s;
-            Draw.Text(g, count, ThemeService.Resources.Font(FontRole.Body, dpi), x, centerY, disabled ? t.TextDisabled : t.Text3);
+            Draw.Text(g, count, ThemeService.Resources.Font(FontRole.Body, dpi), x, centerY, disabled ? t.TextDisabled : on && t.IsHighContrast ? t.OnSelected : t.Text3);
         }
 
         if (focus)

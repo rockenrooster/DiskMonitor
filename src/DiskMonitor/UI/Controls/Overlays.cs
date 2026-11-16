@@ -400,14 +400,21 @@ internal sealed class ToastPopup : LayeredPopup
     public static void PaintToast(Graphics g, Rectangle bounds, Level? level, string title, string? text, string? actionLabel, int hoverPart, int dpi)
     {
         float s = dpi / 96f;
-        Surfaces.ToastContent(g, bounds, level, title, text, dpi);
         Rectangle close = new(bounds.Right - (int)Math.Round(40 * s), bounds.Y + (int)Math.Round(18 * s), (int)Math.Round(28 * s), (int)Math.Round(28 * s));
-        KitButton.Render(g, close, ButtonVariant.Subtle, "", IconName.Close, false, new ButtonLook(hoverPart == 1, false, false, false), dpi);
+        Rectangle? action = null;
         if (!string.IsNullOrEmpty(actionLabel))
         {
             int width = KitButton.MeasureWidth(actionLabel, false, false, ButtonVariant.Secondary, true, dpi);
-            Rectangle action = new(close.X - (int)Math.Round(4 * s) - width, close.Y, width, close.Height);
-            KitButton.Render(g, action, ButtonVariant.Secondary, actionLabel, null, false, new ButtonLook(hoverPart == 0, false, false, false), dpi);
+            action = new Rectangle(close.X - (int)Math.Round(4 * s) - width, close.Y, width, close.Height);
+        }
+
+        // The text ends 12 px before the action (or the close button), so a long action never covers it.
+        float textRight = Math.Min(bounds.Right - 104 * s, (action?.X ?? close.X) - 12 * s);
+        Surfaces.ToastContent(g, bounds, level, title, text, dpi, textRight);
+        KitButton.Render(g, close, ButtonVariant.Subtle, "", IconName.Close, false, new ButtonLook(hoverPart == 1, false, false, false), dpi);
+        if (action is { } shown)
+        {
+            KitButton.Render(g, shown, ButtonVariant.Secondary, actionLabel!, null, false, new ButtonLook(hoverPart == 0, false, false, false), dpi);
         }
     }
 

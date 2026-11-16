@@ -78,7 +78,7 @@ internal static class Surfaces
     /// Toast: 360 × 64, radius 8, Raised, Stroke, shadow; a 3 × 48 bar in the level's Fill; 16 px shape at
     /// (16, 14); title BodyStrong at +44 on y 22; text Caption Text2 on y 43.
     /// </summary>
-    public static void ToastContent(Graphics g, Rectangle r, Level? level, string title, string? text, int dpi)
+    public static void ToastContent(Graphics g, Rectangle r, Level? level, string title, string? text, int dpi, float? textRight = null)
     {
         ThemeTokens t = ThemeService.Tokens;
         float s = dpi / 96f;
@@ -90,7 +90,7 @@ internal static class Surfaces
         }
 
         float x = r.X + (level is null ? 16 : 44) * s;
-        float right = r.Right - 104 * s;
+        float right = textRight ?? r.Right - 104 * s;
         Draw.Text(g, title, ThemeService.Resources.Font(FontRole.BodyStrong, dpi), x, r.Y + 22 * s, t.Text, (int)(right - x));
         if (!string.IsNullOrEmpty(text))
         {
@@ -129,9 +129,11 @@ internal static class Surfaces
     {
         ThemeTokens t = ThemeService.Tokens;
         float s = dpi / 96f;
-        Draw.FillRounded(g, new RectangleF(x, y + 2 * s, 16 * s, 16 * s), 8 * s, t.Hover);
-        Draw.FillRounded(g, new RectangleF(x + 28 * s, y, firstWidth, 10 * s), 4 * s, t.Hover);
-        Draw.FillRounded(g, new RectangleF(x + 28 * s, y + 14 * s, secondWidth, 8 * s), 4 * s, Color.FromArgb(153, t.Hover));
+        // High contrast maps Hover to the window colour, so the bars use GrayText there.
+        Color bar = t.IsHighContrast ? t.TextDisabled : t.Hover;
+        Draw.FillRounded(g, new RectangleF(x, y + 2 * s, 16 * s, 16 * s), 8 * s, bar);
+        Draw.FillRounded(g, new RectangleF(x + 28 * s, y, firstWidth, 10 * s), 4 * s, bar);
+        Draw.FillRounded(g, new RectangleF(x + 28 * s, y + 14 * s, secondWidth, 8 * s), 4 * s, Color.FromArgb(153, bar));
     }
 }
 
