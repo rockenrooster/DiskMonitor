@@ -19,6 +19,9 @@ internal static class ScreenRenderer
     /// <summary>Screens contributed by the shell and pages (milestones M3 and M4).</summary>
     public static readonly List<(string Name, Size LogicalSize, Func<int, Bitmap> Render)> Screens = [];
 
+    /// <summary><c>--measure</c>: after each window render, print the process's memory and GUI objects (budgets, subplan 09).</summary>
+    public static bool Measure { get; private set; }
+
     public static int Run(string[] args)
     {
         // First, before anything touches AppPaths: point the data folder at a fresh temporary one.
@@ -26,6 +29,7 @@ internal static class ScreenRenderer
         Environment.SetEnvironmentVariable("DISKMONITOR_DATA_DIR", dataDir);
         string output = Path.GetFullPath(Core.Chkdsk.CommandLine.Value(args, Switch) ?? "screens");
         string? only = Core.Chkdsk.CommandLine.Value(args, "--only");
+        Measure = Core.Chkdsk.CommandLine.Has(args, "--measure");
         Directory.CreateDirectory(output);
         ApplicationConfiguration.Initialize();
         ThemeService.ForceNoAnimation = true;
@@ -176,6 +180,7 @@ internal static class ScreenRenderer
         ("events-drawer", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewDrawer(), null),
         ("events-selection", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewSelection(3), null),
         ("events-empty-filters", "Events", new Size(1280, 800), form => (form.CurrentPage as UI.Pages.EventsPage)?.PreviewNoMatch(), null),
+        ("events-50k", "Events", new Size(1280, 800), null, s => DemoData.ManyEvents(s, 50_000)),
         ("drives", "Drives", new Size(1280, 800), null, null),
         ("checkdisk", "CheckDisk", new Size(1280, 800), null, null),
         ("checkdisk-running", "CheckDisk", new Size(1280, 800), null, DemoData.ScanRunning),
@@ -230,6 +235,17 @@ internal static class ScreenRenderer
 
         form.Root.PerformLayout();
         Bitmap bitmap = CaptureTree(form.Root);
+        if (Measure)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            using Process self = Process.GetCurrentProcess();
+            Console.Out.WriteLine(
+                $"{page} at {dpi} dpi, {services.Events.Snapshot().Count} events: private {self.PrivateMemorySize64 / 1048576.0:0.0} MB, " +
+                $"managed {GC.GetTotalMemory(false) / 1048576.0:0.0} MB, GDI {GetGuiResources(self.Handle, 0)}, USER {GetGuiResources(self.Handle, 1)}");
+        }
+
         form.Hide();
         return bitmap;
     }
@@ -288,6 +304,9 @@ internal static class ScreenRenderer
 
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SendMessageW")]
     private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, int lParam);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern int GetGuiResources(IntPtr process, int flags);
 
     private sealed class HarnessHost : UI.IAppHost
     {

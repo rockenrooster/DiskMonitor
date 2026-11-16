@@ -268,6 +268,52 @@ internal static class DemoData
             Core.Updates.UpdateService.ReleasesUrl, "DiskMonitor-Setup.exe", null, 48_000_000, null, Strings.UpdateAvailable(latest.ToString(3))));
     }
 
+    /// <summary>
+    /// Replaces the history with <paramref name="count"/> events spread over a year, each with its own
+    /// message and device text, for the memory budget with a full store (subplan 09, part D).
+    /// </summary>
+    public static void ManyEvents(AppServices services, int count, int seed = 50_000)
+    {
+        DriveSnapshot drives = services.Drives.Current;
+        EventRule[] rules = RuleCatalog.All.Where(r => !r.Ignore).ToArray();
+        Random random = new(seed);
+        DateTime now = Clock.UtcNow;
+        List<DiskEvent> events = new(count);
+        for (int i = 0; i < count; i++)
+        {
+            EventRule rule = rules[random.Next(rules.Length)];
+            int disk = random.Next(0, 4);
+            PhysicalDisk? physical = drives.FindDisk(disk);
+            string? volume = physical?.Volumes.FirstOrDefault()?.Letter;
+            DateTime time = now - TimeSpan.FromSeconds(random.Next(0, 365 * 24 * 3600));
+            long record = 1_000_000 + i;
+            events.Add(new DiskEvent
+            {
+                Key = $"System|{record}|{time.Ticks}",
+                TimeUtc = time,
+                Tier = rule.Tier,
+                Kind = rule.Kind,
+                RuleId = rule.Id,
+                Title = rule.Title,
+                Message = $"The IO operation at logical block address 0x{random.Next():x} for Disk {disk} (PDO name: \\Device\\{random.Next(0x20, 0x60):X8}) was retried. Record {record}.",
+                Explanation = rule.Explanation,
+                WhyItMatters = RuleCatalog.WhyItMatters(rule),
+                Advice = rule.Advice,
+                Log = "System",
+                Provider = rule.Id.Split(':')[0],
+                EventId = random.Next(1, 600),
+                RecordId = record,
+                Level = 2,
+                DiskNumber = disk,
+                Volume = volume,
+                DeviceText = DeviceResolver.Describe(disk, physical, volume),
+                SuggestScan = false
+            });
+        }
+
+        services.Events.ReplaceLogEvents(events, DateTime.MinValue);
+    }
+
     /// <summary>Adds a ReFS volume, which the Check Disk table shows as inert.</summary>
     public static void AddRefsVolume(AppServices services)
     {
