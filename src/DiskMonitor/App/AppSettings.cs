@@ -27,6 +27,7 @@ internal sealed class AppSettings
     public static readonly int[] TemperatureChoices = [45, 50, 55, 60, 65, 70, 75];
     public static readonly int[] LowSpaceChoices = [0, 5, 10, 15, 20];
     public static readonly string[] RoutineScanChoices = ["Off", "Weekly", "Monthly"];
+    public static readonly string[] ThemeChoices = ["System", "Light", "Dark"];
 
     // General
     public string Theme { get; set; } = "System";
@@ -117,7 +118,7 @@ internal sealed class AppSettings
     // Hand-edited or older files can carry values the UI cannot represent.
     internal AppSettings Sanitize()
     {
-        Theme = Theme is "System" or "Light" or "Dark" ? Theme : "System";
+        Theme = ThemeChoices.Contains(Theme) ? Theme : ThemeChoices[0];
         Critical ??= new TierOptions { Sticky = true };
         High ??= new TierOptions();
         Medium ??= new TierOptions { Sound = false };

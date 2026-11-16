@@ -75,6 +75,9 @@ internal static class Format
     /// <summary>Current culture short time: "14:02".</summary>
     public static string TimeOfDay(DateTime utc) => utc.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
 
+    /// <summary>A time of day given in minutes after midnight, in the culture's short time: "22:00".</summary>
+    public static string ClockTime(int minutes) => new DateTime(2000, 1, 1).AddMinutes(minutes).ToString("t", CultureInfo.CurrentCulture);
+
     /// <summary>
     /// "Today 03:12", "Yesterday 03:00", the weekday for the last six days ("Mon 21:40"), then
     /// "8 Nov 03:00", with the year instead of the time when not the current year ("14 Mar 2026").

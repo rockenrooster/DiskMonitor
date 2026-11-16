@@ -13,6 +13,7 @@ internal static class PageRegistry
         "Events" => new EventsPage(services, navigator),
         "Drives" => new DrivesPage(services, navigator),
         "CheckDisk" => new CheckDiskPage(services, navigator),
+        "Settings" => new SettingsPage(services, navigator),
         _ => new PlaceholderPage(services, navigator, key, MainForm.PageTitle(key))
     };
 }

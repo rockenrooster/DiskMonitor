@@ -767,6 +767,179 @@ internal static class Strings
     public const string ApprovalDeclined = "Administrator approval was declined.";
 
     // ---------------------------------------------------------------------------------------------
+    // Settings (subplan 08)
+    // ---------------------------------------------------------------------------------------------
+
+    public const string SectionGeneral = "General";
+    public const string SectionAlerts = "Alerts";
+    public const string SectionNotifications = "Notifications";
+    public const string SectionMonitoring = "Monitoring";
+    public const string SectionRules = "Rules";
+    public const string SectionUpdates = "Updates";
+    public const string SectionAdvanced = "Advanced";
+    public const string SectionAbout = "About";
+    public const string IntroGeneral = "How Disk Monitor looks and starts.";
+    public const string IntroAlerts = "How each tier gets your attention.";
+    public const string IntroNotifications = "When Disk Monitor tells you something outside its window.";
+    public const string IntroMonitoring = "What Disk Monitor watches and how often.";
+    public const string IntroRules = "Change how serious each kind of event is, or turn it off. Changes apply at once to the whole history.";
+    public const string IntroUpdates = "Disk Monitor updates itself from signed releases on GitHub.";
+    public const string IntroAdvanced = "For troubleshooting.";
+
+    public const string SettingTheme = "Theme";
+    public const string ThemeSystem = "System";
+    public const string ThemeLight = "Light";
+    public const string ThemeDark = "Dark";
+    public const string SettingStartup = "Start with Windows";
+    public const string SettingStartupHelp = "Disk Monitor only watches while it runs";
+    public const string SettingStartTray = "Start in the notification area";
+    public const string SettingStartTrayHelp = "When started with Windows, no window opens";
+    public const string SettingCloseToTray = "Keep running in the notification area when closed";
+    public const string SettingFailed = "Could not change this setting";
+    public const string SettingFailedReason = "Windows did not accept the change. Details were saved to the log.";
+
+    public const string ColumnNotify = "NOTIFY";
+    public const string ColumnSound = "SOUND";
+    public const string ColumnSticky = "STAY ON SCREEN";
+
+    public static string TierHelp(Tier tier) => tier switch
+    {
+        Tier.Critical => "Data is being lost, or a drive says it is failing",
+        Tier.High => "Errors that need action soon",
+        Tier.Medium => "Warnings worth a look",
+        _ => "Information and housekeeping"
+    };
+
+    public const string SendTest = "Send test";
+    public const string NotifyFirst = "Turn on Notify first";
+
+    public static string AlertSwitchName(Tier tier, string column) => $"{TierName(tier)}{Separator}{column}";
+
+    public const string SettingWindowsNotifications = "Windows notifications";
+    public const string NotificationsAllowed = "Allowed";
+    public const string NotificationsOffForApp = "Turned off for Disk Monitor in Windows settings";
+    public const string NotificationsOffForUser = "Turned off for all apps in Windows settings";
+    public const string NotificationsOffByPolicy = "Turned off by your organization";
+    public const string NotificationsUnknown = "Could not be checked";
+    public const string OpenWindowsSettings = "Open Windows settings";
+
+    public static string LastNotificationFailed(string error) => $"Last notification failed: {error}";
+
+    public const string SettingSnooze = "Snooze";
+    public const string SettingSnoozeHelp = "Events are still recorded";
+
+    public static string SnoozedUntil(DateTime untilUtc) => $"Snoozed until {SnoozeTime(untilUtc)}";
+
+    public const string NotSnoozed = "Not snoozed";
+    public const string SettingQuietHours = "Quiet hours";
+    public const string SettingQuietHoursHelp = "Notifications arrive silently in the notification centre";
+    public const string QuietFrom = "From";
+    public const string QuietTo = "To";
+    public const string SettingQuietCritical = "Critical alerts still pop up";
+    public const string SettingQuietCriticalHelp = "During quiet hours";
+    public const string SettingCombine = "Combine repeats";
+    public const string SettingCombineHelp = "One notification per problem and drive in each period";
+
+    /// <summary>A choice of minutes: <c>Off</c> for 0, <c>1 hour</c> for 60, otherwise <c>{n} minutes</c>.</summary>
+    public static string MinutesChoice(int minutes) => minutes switch
+    {
+        0 => SwitchOff,
+        60 => "1 hour",
+        _ => $"{minutes} minutes"
+    };
+
+    public static string DaysChoice(int days) => days == 365 ? "1 year" : $"{days} days";
+
+    public static string PercentChoice(int percent) => percent == 0 ? SwitchOff : Format.Percent(percent);
+
+    public const string SettingHistory = "History";
+    public const string SettingHistoryHelp = "How far back to read the Windows logs";
+    public const string SettingIncludeChkdsk = "Include CHKDSK results";
+    public const string SettingIncludeChkdskHelp = "Including the scans Windows runs itself";
+    public const string SettingRemovable = "Lower the tier for removable media";
+    public const string SettingRemovableHelp = "Memory cards and USB sticks often report errors when unplugged";
+    public const string SettingHealthInterval = "Check drive health every";
+    public const string SettingHealthIntervalHelp = "Sleeping drives are never woken";
+    public const string SettingTemperature = "Temperature warning";
+    public const string SettingTemperatureHelp = "Alert when a drive reaches this temperature";
+    public const string SettingLowSpace = "Low free space warning";
+    public const string SettingLowSpaceHelp = "For fixed volumes of 8 GB or more";
+
+    public const string FilterRules = "Filter rules";
+    public const string ResetAll = "Reset all";
+    public const string NothingChangedYet = "Nothing has been changed";
+
+    public static string UnrecognisedRule(string id) => $"Unrecognised event {id}";
+
+    public static string RuleMeta(string id, ErrorKind kind, string source) => $"{id}{Separator}{KindName(kind)}{Separator}{source}";
+
+    public static string DefaultIs(Tier? tier) => tier is { } t ? $"Default is {TierName(t)}" : "Default is off";
+
+    public const string Reset = "Reset";
+
+    public static string RuleChangedTier(int n) => n switch
+    {
+        0 => NoEventsChanged,
+        1 => "1 event changed tier.",
+        _ => $"{Format.Number(n)} events changed tier."
+    };
+
+    public static string RuleHidden(int n) => n switch
+    {
+        0 => NoEventsChanged,
+        1 => "1 event is now hidden.",
+        _ => $"{Format.Number(n)} events are now hidden."
+    };
+
+    public static string RuleBack(int n) => n switch
+    {
+        0 => NoEventsChanged,
+        1 => "1 event is back.",
+        _ => $"{Format.Number(n)} events are back."
+    };
+
+    public const string NoEventsChanged = "No events changed.";
+    public const string ResetAllTitle = "Reset all rules?";
+
+    public static string ResetAllText(int n) =>
+        $"Every kind of event goes back to its built-in tier, and ignored kinds come back. {Format.Count(n, "rule is", "rules are")} customised.";
+
+    public const string ResetRules = "Reset rules";
+
+    public static string VersionLine(string version) => $"Version {version}";
+
+    public const string DownloadInstall = "Download and install";
+    public const string InstallApp = "Install Disk Monitor…";
+    public const string ReleaseNotes = "Release notes";
+    public const string SettingAutoUpdate = "Check for updates automatically";
+    public const string SettingAutoUpdateHelp = "At start and once a day. Nothing is installed without you.";
+    public const string InstallTitle = "Install Disk Monitor?";
+    public const string InstallText = "The signed installer is downloaded and installs Disk Monitor for all users. Windows asks for administrator approval. Disk Monitor restarts when it is done.";
+    public const string InstallConfirm = "Install";
+
+    public const string SettingLogs = "Logs";
+    public const string SettingLogsHelp = "Errors Disk Monitor ran into";
+    public const string OpenLogs = "Open logs folder";
+    public const string SettingData = "Data";
+    public const string SettingDataHelp = "Settings, history read state and scan results";
+    public const string OpenData = "Open data folder";
+    public const string SettingDiagnostics = "Diagnostics";
+    public const string SettingDiagnosticsHelp = "Checks what Disk Monitor can see on this PC";
+    public const string RunSelfCheck = "Run self-check";
+    public const string CopySystemReport = "Copy system report";
+    public const string SelfCheckTitle = "Self-check";
+
+    public static string SystemReportHeader(string version, string windows) => $"{AppName} {version}{Environment.NewLine}{windows}";
+
+    public const string AboutInstalled = "Installed";
+    public const string AboutPortable = "Portable";
+    public const string AboutAdmin = "Running as administrator";
+    public const string AboutStandard = "Standard user";
+    public const string LinkWebsite = "Website";
+    public const string LinkLicences = "Licences";
+    public const string AboutPrivacy = "Disk Monitor reads the Windows event logs and drive health on this PC and sends nothing anywhere. Its only network use is the update check against GitHub.";
+
+    // ---------------------------------------------------------------------------------------------
     // Updates (subplan 08, Updates)
     // ---------------------------------------------------------------------------------------------
 

@@ -259,6 +259,15 @@ internal static class DemoData
         services.Chkdsk.LoadPreview(volume + " /scan", output, null, result, startedUtc: started);
     }
 
+    /// <summary>A newer signed release is available (Settings, Updates screen).</summary>
+    public static void UpdateAvailable(AppServices services)
+    {
+        Version current = services.Updates.CurrentVersion;
+        Version latest = new(current.Major, current.Minor + 1, 0);
+        services.Updates.LoadPreview(new Core.Updates.UpdateCheckResult(current, latest, "v" + latest.ToString(3), true, true, true,
+            Core.Updates.UpdateService.ReleasesUrl, "DiskMonitor-Setup.exe", null, 48_000_000, null, Strings.UpdateAvailable(latest.ToString(3))));
+    }
+
     /// <summary>Adds a ReFS volume, which the Check Disk table shows as inert.</summary>
     public static void AddRefsVolume(AppServices services)
     {

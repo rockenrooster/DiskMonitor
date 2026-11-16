@@ -341,6 +341,9 @@ internal sealed class DropDown : InteractiveKitControl
 
     public int DefaultIndex { get; set; }
 
+    /// <summary>Accent border while the selection differs from <see cref="DefaultIndex"/> (filters); settings turn it off.</summary>
+    public bool MarkChanged { get; set; } = true;
+
     /// <summary>Formats the label from the selected item, for example "Group: {value}"; null shows the item.</summary>
     public Func<string, string>? LabelFormat { get; set; }
 
@@ -443,7 +446,7 @@ internal sealed class DropDown : InteractiveKitControl
 
     protected override void PaintContent(Graphics g)
     {
-        bool changed = _selected != DefaultIndex;
+        bool changed = MarkChanged && _selected != DefaultIndex;
         Render(g, ClientRectangle, Label, ShowHover, _open || ShowPressed, ShowDisabled, false, changed, Inset, Dpi);
     }
 

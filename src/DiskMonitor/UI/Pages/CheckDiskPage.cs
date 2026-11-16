@@ -696,7 +696,7 @@ internal sealed class CheckDiskPage : PageBase
 
         private readonly CheckDiskPage _page;
         private readonly KitSwitch _auto = new() { AccessibleName = Strings.ProactiveAutoLabel };
-        private readonly DropDown _routine = new() { AccessibleName = Strings.ProactiveRoutineLabel };
+        private readonly DropDown _routine = new() { AccessibleName = Strings.ProactiveRoutineLabel, MarkChanged = false };
         private readonly KitSwitch _clean = new() { AccessibleName = Strings.ProactiveCleanLabel };
         private readonly KitSwitch _perf = new() { AccessibleName = Strings.ProactivePerfLabel };
         private readonly KitSwitch _task = new() { AccessibleName = Strings.ProactiveTaskLabel };

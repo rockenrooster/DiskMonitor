@@ -184,8 +184,20 @@ internal static class ScreenRenderer
         ("checkdisk-error", "CheckDisk", new Size(1280, 800), null, s => DemoData.ScanFinished(s, Core.Chkdsk.ChkdskOutcome.Failed)),
         ("checkdisk-offer", "CheckDisk", new Size(1280, 800), form => form.ShowCheckDisk("D:", new UI.Pages.ScanOfferReason(Core.Clock.UtcNow - TimeSpan.FromHours(2))), null),
         ("checkdisk-narrow", "CheckDisk", new Size(1000, 800), null, DemoData.ScanRunning),
-        ("settings", "Settings", new Size(1280, 800), null, null)
+        ("settings", "Settings", new Size(1280, 800), null, null),
+        ("settings-alerts", "Settings", new Size(1280, 800), form => Section(form, "alerts"), null),
+        ("settings-notifications", "Settings", new Size(1280, 800), form => Section(form, "notifications"), null),
+        ("settings-monitoring", "Settings", new Size(1280, 800), form => Section(form, "monitoring"), null),
+        ("settings-rules", "Settings", new Size(1280, 800), form => Section(form, "rules", "disk:153", App.Strings.RuleChangedTier(12)), s => s.Settings.RuleOverrides["disk:153"] = nameof(Core.Events.Tier.Low)),
+        ("settings-search", "Settings", new Size(1280, 800), form => Section(form, "rules", "disk:153", App.Strings.RuleChangedTier(12), "disk"), s => s.Settings.RuleOverrides["disk:153"] = nameof(Core.Events.Tier.Low)),
+        ("settings-updates", "Settings", new Size(1280, 800), form => Section(form, "updates"), null),
+        ("settings-updates-available", "Settings", new Size(1280, 800), form => Section(form, "updates"), DemoData.UpdateAvailable),
+        ("settings-advanced", "Settings", new Size(1280, 800), form => Section(form, "advanced"), null),
+        ("settings-about", "Settings", new Size(1280, 800), form => Section(form, "about"), null)
     ];
+
+    private static void Section(UI.MainForm form, string key, string? ruleId = null, string? info = null, string? filter = null) =>
+        (form.CurrentPage as UI.Pages.SettingsPage)?.PreviewSection(key, ruleId, info, filter);
 
     /// <summary>Renders the main window off-screen with demo data, on a page, at a logical size.</summary>
     public static Bitmap RenderWindow(string page, Size logical, int dpi, Action<UI.MainForm>? setup, bool fullHeight, Action<App.AppServices>? prepare = null)

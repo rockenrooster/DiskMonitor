@@ -48,6 +48,14 @@ internal sealed class UpdateService : IDisposable
 
     public event EventHandler? StatusChanged;
 
+    /// <summary>Sets a check result without the network, for demo mode and the screen harness (subplan 09).</summary>
+    internal void LoadPreview(UpdateCheckResult result)
+    {
+        LastResult = result;
+        LastCheckedUtc = Clock.UtcNow;
+        StatusChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     public Version CurrentVersion { get; }
     public UpdateCheckResult? LastResult { get; private set; }
     public DateTime? LastCheckedUtc { get; private set; }

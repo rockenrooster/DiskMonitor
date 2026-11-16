@@ -21,9 +21,16 @@ internal static class SelfCheck
 
     public static int Run(string[] args)
     {
-        // A GUI executable has no console of its own; borrow the one it was started from.
-        _ = AttachConsole(AttachParentProcess);
-        TextWriter output = Console.Out;
+        // A GUI executable has no console of its own; borrow the one it was started from. The Settings page
+        // asks for a UTF-8 file instead (--output), because a redirected console uses the ANSI code page.
+        string? outputPath = CommandLine.Value(args, "--output");
+        if (outputPath is null)
+        {
+            _ = AttachConsole(AttachParentProcess);
+        }
+
+        using StreamWriter? file = outputPath is null ? null : new StreamWriter(outputPath, append: false, new System.Text.UTF8Encoding(false));
+        TextWriter output = file ?? Console.Out;
         bool verbose = CommandLine.Has(args, "--verbose");
         int failures = 0;
 
