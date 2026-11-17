@@ -132,8 +132,9 @@ internal sealed class AppServices : IDisposable
             WhyItMatters = RuleCatalog.WhyItMatters(rule),
             Advice = rule.Advice,
             Log = TestLog,
-            Provider = rule.Source,
-            EventId = 0,
+            // The rule id names the provider and event ("disk:7"), as a logged record would.
+            Provider = rule.Id.Split(':')[0],
+            EventId = int.TryParse(rule.Id.Split(':').ElementAtOrDefault(1), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int eventId) ? eventId : 0,
             DiskNumber = disk?.Number,
             Volume = volume?.Letter,
             DeviceText = DeviceResolver.Describe(disk?.Number, disk, volume?.Letter),
