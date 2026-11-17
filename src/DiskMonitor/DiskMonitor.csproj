@@ -7,12 +7,11 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <!-- Self-contained, single file, uncompressed (subplan 10): nothing to install, fast start. -->
-    <SelfContained>true</SelfContained>
+    <!-- Framework-dependent single file: the .NET 10 Desktop Runtime (x64) installed on the PC is a
+         prerequisite (owner's decision, 2026-11-16); the installer checks for it. -->
+    <SelfContained>false</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishReadyToRun>true</PublishReadyToRun>
-    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
     <PublishTrimmed>false</PublishTrimmed>
     <DebugType>embedded</DebugType>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

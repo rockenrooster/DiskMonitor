@@ -26,24 +26,25 @@ jobs:
           Get-Content selfcheck.txt
           exit $p.ExitCode
       - name: Publish the single-file executable
-        run: dotnet publish src/DiskMonitor/DiskMonitor.csproj -c Release -r win-x64 --self-contained true -o publish -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:EnableCompressionInSingleFile=false -nologo
-      - name: Starts with no .NET installed
+        run: dotnet publish src/DiskMonitor/DiskMonitor.csproj -c Release -r win-x64 --self-contained false -o publish -p:PublishSingleFile=true -p:PublishReadyToRun=true -nologo
+      - name: Published executable starts
         shell: pwsh
         run: |
-          # Hide every machine-wide .NET, so the executable can only use the runtime it carries
-          # (the release plan requires it to run on a machine that never had .NET installed).
-          dotnet build-server shutdown | Out-Null
-          Get-Process dotnet, MSBuild, VBCSCompiler -ErrorAction SilentlyContinue | Stop-Process -Force
-          Start-Sleep -Seconds 2
-          foreach ($dir in @("$env:ProgramFiles\dotnet", "${env:ProgramFiles(x86)}\dotnet", "$env:LOCALAPPDATA\Microsoft\dotnet")) {
-            if (Test-Path $dir) { Rename-Item -LiteralPath $dir -NewName ((Split-Path $dir -Leaf) + "-hidden"); "hid $dir" }
-          }
-          Remove-Item Env:DOTNET_ROOT -ErrorAction SilentlyContinue
-          if (Get-Command dotnet -ErrorAction SilentlyContinue) { throw "dotnet is still reachable" }
-          $report = Join-Path $env:RUNNER_TEMP "selfcheck-no-dotnet.txt"
+          # Framework-dependent: the executable runs on the .NET 10 Desktop Runtime installed on the PC
+          # (a prerequisite). The checks' own results depend on the runner's virtual disks, so only the
+          # report's presence is required here: a missing runtime stops the executable before it writes.
+          $report = Join-Path $env:RUNNER_TEMP "selfcheck-published.txt"
           $p = Start-Process "publish\DiskMonitor.exe" -ArgumentList @("--self-check", "--output", "`"$report`"") -Wait -PassThru -NoNewWindow
           Get-Content $report
-          # A missing runtime stops the executable before it writes anything; the checks' own results
-          # depend on the runner's virtual disks, so only the report's presence is required here.
           if (-not (Select-String -Path $report -Pattern "Disk Monitor self-check" -Quiet)) { throw "The executable did not start (exit code $($p.ExitCode))" }
-          "Started without .NET; self-check exit code $($p.ExitCode)"
+          "Published executable started; self-check exit code $($p.ExitCode)"
+      - name: Installer compiles
+        shell: pwsh
+        run: |
+          # Inno Setup is not installed on the development PC; compiling here catches script errors
+          # before a release tag does.
+          choco install innosetup --no-progress -y | Out-Null
+          $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue)?.Source ?? (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe")
+          & $iscc /Q "/DAppVersion=0.0.0.0" "/DSourceDir=$PWD\publish" "/DOutputDir=$env:RUNNER_TEMP\installer" installer\DiskMonitor.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+          Get-Item "$env:RUNNER_TEMP\installer\DiskMonitor-Setup.exe" | ForEach-Object { "DiskMonitor-Setup.exe: {0:N1} MB" -f ($_.Length / 1MB) }

@@ -5,6 +5,9 @@
 - Add upcoming user-visible changes here before tagging a release.
 - After *Download and install*, Disk Monitor opens its window again when the update is done, instead of starting only in the notification area.
 - On Check Disk, the progress ring beside the volume being scanned keeps turning; it stood still between progress updates.
+- CHKDSK's console shows every line a CHKDSK window shows; counts such as "3647232 file records processed." used to appear as blank lines.
+- The scan's progress bar follows CHKDSK's stages and never goes back, and the time left is estimated from the pace so far. CHKDSK's own total restarted after the first stage, so the bar fell back and the run then ended at 2 %, with hours left.
+- Disk Monitor now runs on the .NET 10 Desktop Runtime installed on the PC instead of carrying its own copy, so the download is a few MB instead of 118 MB. Install the runtime from https://dotnet.microsoft.com/download/dotnet/10.0 first; the installer checks for it.
 
 ## 2.0.0.2 - 2026-11-16
 

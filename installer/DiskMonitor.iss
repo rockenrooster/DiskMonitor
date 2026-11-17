@@ -43,7 +43,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Files]
 Source: "{#SourceDir}\DiskMonitor.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\DiskMonitor.exe"
@@ -66,3 +66,24 @@ Filename: "{app}\DiskMonitor.exe"; Parameters: "--elevated-op unregister-all-tas
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{localappdata}\DiskMonitor\Updates"
+
+[Code]
+// Disk Monitor runs on the .NET 10 Desktop Runtime (x64), a prerequisite this installer does not carry.
+// Without it Setup stops before changing anything; a silent update leaves the installed version in place.
+function DesktopRuntimeInstalled: Boolean;
+var
+  FindRec: TFindRec;
+begin
+  Result := FindFirst(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App\10.*'), FindRec);
+  if Result then
+    FindClose(FindRec);
+end;
+
+function InitializeSetup: Boolean;
+begin
+  Result := DesktopRuntimeInstalled;
+  if not Result then
+    SuppressibleMsgBox('Disk Monitor needs the .NET 10 Desktop Runtime (x64).' + #13#10 + #13#10 +
+      'Install it from https://dotnet.microsoft.com/download/dotnet/10.0, then run Setup again.',
+      mbCriticalError, MB_OK, IDOK);
+end;

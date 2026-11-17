@@ -65,7 +65,9 @@ Get the latest build from [GitHub Releases](https://github.com/rockenrooster/Dis
 - `DiskMonitor-Setup.exe`: the installer (recommended). Installing needs administrator rights.
 - `DiskMonitor.exe`: the portable executable, one file.
 
-Windows 10 22H2 or Windows 11, x64. Nothing else to install: Disk Monitor carries its own .NET runtime.
+Windows 10 22H2 or Windows 11, x64, with the
+[.NET 10 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/10.0) installed. The
+installer checks for it and stops, changing nothing, when it is missing.
 
 ## Design
 
@@ -102,7 +104,7 @@ Check what Disk Monitor can see on this PC:
 .\src\DiskMonitor\bin\Debug\net10.0-windows\win-x64\DiskMonitor.exe --self-check
 ```
 
-Build the self-contained executable (and the installer, when Inno Setup is installed) into `artifacts\`:
+Build the single-file executable (and the installer, when Inno Setup is installed) into `artifacts\`:
 
 ```powershell
 .\build.ps1 -NoIncrement

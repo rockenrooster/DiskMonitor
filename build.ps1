@@ -83,63 +83,6 @@ function Write-SignedUpdateManifest {
     }
 }
 
-# THIRD-PARTY-NOTICES.md: the licence and notices of the .NET runtime packs the executable carries,
-# taken from the packs themselves (never typed by hand).
-function Write-ThirdPartyNotices {
-    param(
-        [string]$ProjectDir,
-        [string]$Destination
-    )
-
-    $assets = Get-Content (Join-Path $ProjectDir "obj\project.assets.json") -Raw | ConvertFrom-Json
-    $packagesPath = $assets.project.restore.packagesPath
-    $wanted = @("Microsoft.NETCore.App.Runtime.win-x64", "Microsoft.WindowsDesktop.App.Runtime.win-x64")
-    $packs = @()
-    foreach ($framework in $assets.project.frameworks.PSObject.Properties) {
-        foreach ($dependency in $framework.Value.downloadDependencies) {
-            if ($wanted -contains $dependency.name) {
-                $packVersion = (($dependency.version -replace '[\[\]\(\)\s]', '') -split ',')[0]
-                $packs += [pscustomobject]@{
-                    Name = $dependency.name
-                    Version = $packVersion
-                    Path = Join-Path $packagesPath (Join-Path $dependency.name.ToLowerInvariant() $packVersion)
-                }
-            }
-        }
-    }
-
-    if ($packs.Count -ne $wanted.Count) {
-        throw "Runtime packs not found in project.assets.json; publish self-contained first."
-    }
-
-    $builder = [System.Text.StringBuilder]::new()
-    [void]$builder.AppendLine("# Third-party notices")
-    [void]$builder.AppendLine()
-    [void]$builder.AppendLine("Disk Monitor carries its own copy of the .NET runtime and the Windows Desktop runtime, so nothing")
-    [void]$builder.AppendLine("else has to be installed. Their licences and third-party notices follow, as shipped in the runtime")
-    [void]$builder.AppendLine("packs this build was published with.")
-    foreach ($pack in $packs) {
-        # The core pack ships LICENSE.TXT and THIRD-PARTY-NOTICES.TXT; the Windows Desktop pack ships LICENSE only.
-        $licence = @("LICENSE.TXT", "LICENSE") | Where-Object { Test-Path (Join-Path $pack.Path $_) } | Select-Object -First 1
-        if (!$licence) {
-            throw "No licence file in $($pack.Path)"
-        }
-
-        $files = @($licence) + @("THIRD-PARTY-NOTICES.TXT" | Where-Object { Test-Path (Join-Path $pack.Path $_) })
-        foreach ($file in $files) {
-            $path = Join-Path $pack.Path $file
-            [void]$builder.AppendLine()
-            [void]$builder.AppendLine("## $($pack.Name) $($pack.Version): $file")
-            [void]$builder.AppendLine()
-            [void]$builder.AppendLine('```text')
-            [void]$builder.AppendLine((Get-Content $path -Raw).TrimEnd())
-            [void]$builder.AppendLine('```')
-        }
-    }
-
-    [System.IO.File]::WriteAllText($Destination, $builder.ToString(), [System.Text.UTF8Encoding]::new($false))
-}
-
 $projectDir = Join-Path $PSScriptRoot "src\DiskMonitor"
 $csprojPath = Join-Path $projectDir "DiskMonitor.csproj"
 $innoScript = Join-Path $PSScriptRoot "installer\DiskMonitor.iss"
@@ -172,17 +115,14 @@ $artifactDir = Join-Path $PSScriptRoot "artifacts"
 Remove-Item $publishDir -Recurse -Force -ErrorAction SilentlyContinue
 
 RunDotnet clean $csprojPath -c Release
-RunDotnet publish $csprojPath -c Release -r win-x64 --self-contained true -o $publishDir /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:EnableCompressionInSingleFile=false
+RunDotnet publish $csprojPath -c Release -r win-x64 --self-contained false -o $publishDir /p:PublishSingleFile=true /p:PublishReadyToRun=true
 
-# A self-contained single file: anything else in the folder means a dependency was added without
-# updating the installer and the packaging plan.
+# A framework-dependent single file (the .NET 10 Desktop Runtime is a prerequisite): anything else in
+# the folder means a dependency was added without updating the installer and the packaging plan.
 $unexpected = @(Get-ChildItem $publishDir -Force | Where-Object { $_.Name -ne "DiskMonitor.exe" })
 if ($unexpected.Count -gt 0) {
     throw "The publish output must be DiskMonitor.exe only; also found: $($unexpected.Name -join ', ')"
 }
-
-$noticesPath = Join-Path $publishDir "THIRD-PARTY-NOTICES.md"
-Write-ThirdPartyNotices -ProjectDir $projectDir -Destination $noticesPath
 
 $publishExe = Join-Path $publishDir "DiskMonitor.exe"
 $artifactExe = Join-Path $artifactDir "DiskMonitor.exe"
