@@ -3,6 +3,11 @@
 ## Unreleased
 
 - Add upcoming user-visible changes here before tagging a release.
+- Menus, drop-down lists and tooltips show crisp text again; it came out heavy and darker than intended.
+- Filter chips and drop-downs on the Events page resize as soon as their count, label or selection changes. Before, their text could be cut off or sit oddly in the button until you switched pages.
+- The window keeps itself up to date when it was opened while Disk Monitor was still starting. Before, it could stay on what it first showed until you switched pages.
+- The drive filter on Events shows "All drives" even when no event names a drive.
+- Settings shows the full four-part version, for example 2.0.0.1.
 
 ## 2.0.0.1 - 2026-11-16
 
