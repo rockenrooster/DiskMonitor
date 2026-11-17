@@ -25,3 +25,22 @@ jobs:
           $p = Start-Process $exe -ArgumentList '--self-check' -Wait -PassThru -NoNewWindow -RedirectStandardOutput selfcheck.txt
           Get-Content selfcheck.txt
           exit $p.ExitCode
+      - name: Publish the single-file executable
+        run: dotnet publish src/DiskMonitor/DiskMonitor.csproj -c Release -r win-x64 --self-contained true -o publish -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:EnableCompressionInSingleFile=false -nologo
+      - name: Starts with no .NET installed
+        shell: pwsh
+        run: |
+          # Hide every machine-wide .NET, so the executable can only use the runtime it carries
+          # (the release plan requires it to run on a machine that never had .NET installed).
+          foreach ($dir in @("$env:ProgramFiles\dotnet", "${env:ProgramFiles(x86)}\dotnet", "$env:LOCALAPPDATA\Microsoft\dotnet")) {
+            if (Test-Path $dir) { Rename-Item $dir "$dir-hidden"; "hid $dir" }
+          }
+          Remove-Item Env:DOTNET_ROOT -ErrorAction SilentlyContinue
+          if (Get-Command dotnet -ErrorAction SilentlyContinue) { throw "dotnet is still reachable" }
+          $report = Join-Path $env:RUNNER_TEMP "selfcheck-no-dotnet.txt"
+          $p = Start-Process "publish\DiskMonitor.exe" -ArgumentList @("--self-check", "--output", "`"$report`"") -Wait -PassThru -NoNewWindow
+          Get-Content $report
+          # A missing runtime stops the executable before it writes anything; the checks' own results
+          # depend on the runner's virtual disks, so only the report's presence is required here.
+          if (-not (Select-String -Path $report -Pattern "Disk Monitor self-check" -Quiet)) { throw "The executable did not start (exit code $($p.ExitCode))" }
+          "Started without .NET; self-check exit code $($p.ExitCode)"
