@@ -4,6 +4,10 @@
 
 - Add upcoming user-visible changes here before tagging a release.
 
+## 2.0.0.1 - 2026-11-16
+
+- Uninstalling now also removes Disk Monitor's notification and link registration, so nothing is left pointing at the removed program.
+
 ## 2.0.0.0 - 2026-11-16
 
 - First public release of Disk Monitor 2.0, rebuilt from scratch.
