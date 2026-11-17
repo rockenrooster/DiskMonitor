@@ -102,28 +102,122 @@ internal abstract class LayeredPopup : Form
     /// <summary>Redraws the window from <see cref="PaintSurface"/>.</summary>
     public void Render()
     {
-        Size surface = SurfaceSize;
-        if (surface.Width <= 0 || surface.Height <= 0)
+        if (Compose() is not { } layered)
         {
             return;
         }
 
+        using (layered)
+        {
+            if (Size != layered.Size)
+            {
+                Size = layered.Size;
+            }
+
+            UpdateLayered(layered);
+        }
+    }
+
+    /// <summary>
+    /// The surface alone, painted opaque at device pixels. It is painted through a real GDI surface (a DIB
+    /// section in a memory DC), as the window's own double buffer is: GDI text drawn on a GDI+ bitmap's
+    /// Graphics blends its ClearType edges against a scratch copy instead of the background, which made
+    /// menu text heavy and jagged.
+    /// </summary>
+    internal Bitmap? RenderSurface()
+    {
+        Size surface = SurfaceSize;
+        if (surface.Width <= 0 || surface.Height <= 0)
+        {
+            return null;
+        }
+
+        BitmapInfoHeader header = new()
+        {
+            Size = Marshal.SizeOf<BitmapInfoHeader>(),
+            Width = surface.Width,
+            Height = -surface.Height,
+            Planes = 1,
+            BitCount = 32
+        };
+        IntPtr screen = GetDC(IntPtr.Zero);
+        IntPtr memory = CreateCompatibleDC(screen);
+        IntPtr section = CreateDIBSection(memory, ref header, 0, out IntPtr bits, IntPtr.Zero, 0);
+        IntPtr previous = SelectObject(memory, section);
+        try
+        {
+            using (Graphics g = Graphics.FromHdc(memory))
+            {
+                g.Clear(ThemeService.Tokens.Raised);
+                Draw.PrepareShapes(g);
+                PaintSurface(g, new Rectangle(Point.Empty, surface));
+            }
+
+            _ = GdiFlush();
+
+            // Copy the pixels out (a Bitmap clone could keep pointing at the DIB, which is freed below).
+            Bitmap content = new(surface.Width, surface.Height, PixelFormat.Format32bppRgb);
+            BitmapData data = content.LockBits(new Rectangle(Point.Empty, surface), ImageLockMode.WriteOnly, PixelFormat.Format32bppRgb);
+            try
+            {
+                int rowBytes = surface.Width * 4;
+                byte[] row = new byte[rowBytes];
+                for (int y = 0; y < surface.Height; y++)
+                {
+                    Marshal.Copy(bits + y * rowBytes, row, 0, rowBytes);
+                    Marshal.Copy(row, 0, data.Scan0 + y * data.Stride, rowBytes);
+                }
+            }
+            finally
+            {
+                content.UnlockBits(data);
+            }
+
+            return content;
+        }
+        finally
+        {
+            _ = SelectObject(memory, previous);
+            _ = DeleteObject(section);
+            _ = DeleteDC(memory);
+            _ = ReleaseDC(IntPtr.Zero, screen);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BitmapInfoHeader
+    {
+        public int Size;
+        public int Width;
+        public int Height;
+        public short Planes;
+        public short BitCount;
+        public int Compression;
+        public int SizeImage;
+        public int XPelsPerMeter;
+        public int YPelsPerMeter;
+        public int ClrUsed;
+        public int ClrImportant;
+    }
+
+    [DllImport("gdi32.dll", EntryPoint = "CreateDIBSection")]
+    private static extern IntPtr CreateDIBSection(IntPtr dc, ref BitmapInfoHeader info, int usage, out IntPtr bits, IntPtr section, int offset);
+
+    [DllImport("gdi32.dll", EntryPoint = "GdiFlush")]
+    private static extern bool GdiFlush();
+
+    /// <summary>The whole window image: the shadow, then the surface inside its anti-aliased rounded outline.</summary>
+    internal Bitmap? Compose()
+    {
+        using Bitmap? content = RenderSurface();
+        if (content is null)
+        {
+            return null;
+        }
+
         int margin = ShadowMargin;
-        Size full = new(surface.Width + 2 * margin, surface.Height + 2 * margin);
-        if (Size != full)
-        {
-            Size = full;
-        }
-
-        using Bitmap content = new(surface.Width, surface.Height, PixelFormat.Format32bppRgb);
-        using (Graphics g = Graphics.FromImage(content))
-        {
-            g.Clear(ThemeService.Tokens.Raised);
-            Draw.PrepareShapes(g);
-            PaintSurface(g, new Rectangle(Point.Empty, surface));
-        }
-
-        using Bitmap layered = new(full.Width, full.Height, PixelFormat.Format32bppArgb);
+        Size surface = content.Size;
+        Bitmap layered = new(surface.Width + 2 * margin, surface.Height + 2 * margin, PixelFormat.Format32bppArgb);
         using (Graphics g = Graphics.FromImage(layered))
         {
             g.Clear(Color.Transparent);
@@ -137,7 +231,7 @@ internal abstract class LayeredPopup : Form
             Draw.StrokeRounded(g, new RectangleF(margin, margin, surface.Width, surface.Height), CornerRadius, BorderColor, ThemeService.Sf(PopupDpi, 1));
         }
 
-        UpdateLayered(layered);
+        return layered;
     }
 
     protected override void OnShown(EventArgs e)

@@ -153,6 +153,7 @@ internal static class ScreenRenderer
         Screens.Insert(1, ("dialogs", new Size(1280, 1396), dpi => ReferenceSheets.Dialogs(dpi)));
         Screens.Insert(2, ("icons", new Size(1280, 852), dpi => ReferenceSheets.Icons(dpi)));
         Screens.Insert(3, ("gallery-disk-monitor", new Size(1280, 900), dpi => ReferenceSheets.Gallery(dpi)));
+        Screens.Insert(4, ("popup-menu", new Size(420, 420), PopupMenu));
         UI.Pages.PageRegistry.Register();
         foreach ((string name, string page, Size size, Action<UI.MainForm>? setup, Action<App.AppServices>? prepare) in PageScreens)
         {
@@ -167,6 +168,37 @@ internal static class ScreenRenderer
         {
             Screens.Add(("minimum-" + page.ToLowerInvariant(), new Size(960, 600), dpi => RenderWindow(page, new Size(960, 600), dpi, null, fullHeight: false)));
         }
+    }
+
+    /// <summary>
+    /// The Events context menu exactly as its layered window shows it (the composed per-pixel-alpha image),
+    /// over the page background, for checking pop-up text against the window's own text.
+    /// </summary>
+    private static Bitmap PopupMenu(int dpi)
+    {
+        Bitmap canvas = new(ThemeService.S(dpi, 420), ThemeService.S(dpi, 420));
+        using Graphics g = Graphics.FromImage(canvas);
+        g.Clear(ThemeService.Tokens.Bg);
+        UI.Controls.MenuEntry[] entries =
+        [
+            new(App.Strings.RowDetails, IconName.Info, App.Strings.ShortcutEnter),
+            new(App.Strings.RecOpenDrive, IconName.Drive, App.Strings.ShortcutCtrlEnter),
+            UI.Controls.MenuEntry.Separator,
+            new(App.Strings.MarkAsRead, IconName.Check),
+            new(App.Strings.IgnoreThisKind, IconName.Ignore, App.Strings.ShortcutCtrlI),
+            new(App.Strings.ChangeTier) { Submenu = [] },
+            UI.Controls.MenuEntry.Separator,
+            new(App.Strings.CopyDetails, IconName.Copy, App.Strings.ShortcutCtrlC),
+            new(App.Strings.OpenInEventViewer, IconName.Open)
+        ];
+        using UI.Controls.KitMenu menu = new(entries, dpi);
+        using Bitmap? composed = menu.Compose();
+        if (composed is not null)
+        {
+            g.DrawImageUnscaled(composed, 0, 0);
+        }
+
+        return canvas;
     }
 
     /// <summary>

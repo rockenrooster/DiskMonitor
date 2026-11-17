@@ -5,6 +5,7 @@ using DiskMonitor.UI.Theming;
 namespace DiskMonitor.Tests;
 
 /// <summary>The virtual list scrolls without allocating (UI-07); theme switches leak no GDI or USER objects (UI-01).</summary>
+[Collection("UI")]
 public sealed class UiResourceTests
 {
     private sealed class Row(int index) : ListRow
