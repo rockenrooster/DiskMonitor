@@ -263,9 +263,9 @@ internal static class DemoData
     public static void UpdateAvailable(AppServices services)
     {
         Version current = services.Updates.CurrentVersion;
-        Version latest = new(current.Major, current.Minor + 1, 0);
-        services.Updates.LoadPreview(new Core.Updates.UpdateCheckResult(current, latest, "v" + latest.ToString(3), true, true, true,
-            Core.Updates.UpdateService.ReleasesUrl, "DiskMonitor-Setup.exe", null, 48_000_000, null, Strings.UpdateAvailable(latest.ToString(3))));
+        Version latest = new(current.Major, current.Minor + 1, 0, 0);
+        services.Updates.LoadPreview(new Core.Updates.UpdateCheckResult(current, latest, "v" + latest, true, true, true,
+            Core.Updates.UpdateService.ReleasesUrl, "DiskMonitor-Setup.exe", null, 48_000_000, null, Strings.UpdateAvailable(latest.ToString())));
     }
 
     /// <summary>

@@ -896,7 +896,7 @@ internal sealed class SettingsPage : PageBase
             ThemeTokens t = T;
             float s = Sc;
             UpdateService updates = Updates;
-            Draw.Text(g, Strings.VersionLine(updates.CurrentVersion.ToString(3)), F(FontRole.BodyStrong), 16 * s, 28 * s, t.Text, Width - S(32));
+            Draw.Text(g, Strings.VersionLine(updates.CurrentVersion.ToString()), F(FontRole.BodyStrong), 16 * s, 28 * s, t.Text, Width - S(32));
             Draw.Text(g, Status(), F(FontRole.Body), 16 * s, 50 * s, t.Text2, Width - S(32));
             if (Downloading)
             {
@@ -978,7 +978,7 @@ internal sealed class SettingsPage : PageBase
             if (report)
             {
                 string windows = Environment.OSVersion.VersionString;
-                CopyText(Strings.SystemReportHeader(Services.Updates.CurrentVersion.ToString(3), windows) + Environment.NewLine + Environment.NewLine + output);
+                CopyText(Strings.SystemReportHeader(Services.Updates.CurrentVersion.ToString(), windows) + Environment.NewLine + Environment.NewLine + output);
                 return;
             }
 
@@ -1147,7 +1147,7 @@ internal sealed class SettingsPage : PageBase
             float s = Sc;
             IconArt.Paint(g, 16 * s, 16 * s, 48 * s);
             Draw.Text(g, Strings.AppName, F(FontRole.Subtitle), 80 * s, 28 * s, t.Text, Width - S(96));
-            string version = _section.Page.AppServices.Updates.CurrentVersion.ToString(3);
+            string version = _section.Page.AppServices.Updates.CurrentVersion.ToString();
             Draw.Text(g, Strings.VersionLine(version), F(FontRole.Body), 80 * s, 52 * s, t.Text2, Width - S(96));
             string kind = (AppPaths.IsInstalledBuild ? Strings.AboutInstalled : Strings.AboutPortable) + Strings.Separator
                 + (Elevation.IsElevated ? Strings.AboutAdmin : Strings.AboutStandard);
