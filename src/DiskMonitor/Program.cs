@@ -55,6 +55,12 @@ internal static class Program
             return 0;
         }
 
+        if (CommandLine.Has(args, "--unregister-shell"))
+        {
+            Core.Notifications.ShellRegistration.Remove();
+            return 0;
+        }
+
         // 3. Normal mode.
         string command = CommandFor(args);
         using Mutex mutex = TakeMutex(out bool owned);

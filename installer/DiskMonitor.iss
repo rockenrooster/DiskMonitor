@@ -61,6 +61,7 @@ Filename: "{app}\DiskMonitor.exe"; Parameters: "--tray"; Flags: nowait skipifnot
 [UninstallRun]
 Filename: "{app}\DiskMonitor.exe"; Parameters: "--exit"; Flags: runhidden; RunOnceId: "StopApp"
 Filename: "{app}\DiskMonitor.exe"; Parameters: "--unregister-startup"; Flags: runhidden; RunOnceId: "RemoveStartup"
+Filename: "{app}\DiskMonitor.exe"; Parameters: "--unregister-shell"; Flags: runhidden; RunOnceId: "RemoveShell"
 Filename: "{app}\DiskMonitor.exe"; Parameters: "--elevated-op unregister-all-tasks"; Flags: runhidden; RunOnceId: "RemoveTasks"
 
 [UninstallDelete]

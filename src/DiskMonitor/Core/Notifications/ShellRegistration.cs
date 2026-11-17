@@ -47,6 +47,24 @@ internal static class ShellRegistration
         }
     }
 
+    /// <summary>
+    /// Removes the toast entry and the link protocol (the uninstaller's <c>--unregister-shell</c>), so no
+    /// link or toast click is left pointing at a deleted executable. A portable copy writes them again
+    /// the next time it starts.
+    /// </summary>
+    public static void Remove()
+    {
+        try
+        {
+            Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\AppUserModelId\{AppPaths.AppUserModelId}", throwOnMissingSubKey: false);
+            Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\{AppPaths.ProtocolScheme}", throwOnMissingSubKey: false);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+        {
+            ErrorLog.Write("Shell unregistration", ex);
+        }
+    }
+
     private static void SetIfDifferent(RegistryKey key, string name, string value)
     {
         if (key.GetValue(name) as string != value)
