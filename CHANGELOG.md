@@ -3,6 +3,9 @@
 ## Unreleased
 
 - Add upcoming user-visible changes here before tagging a release.
+
+## 2.0.0.3 - 2026-11-16
+
 - After *Download and install*, Disk Monitor opens its window again when the update is done, instead of starting only in the notification area.
 - On Check Disk, the progress ring beside the volume being scanned keeps turning; it stood still between progress updates.
 - CHKDSK's console shows every line a CHKDSK window shows; counts such as "3647232 file records processed." used to appear as blank lines.
