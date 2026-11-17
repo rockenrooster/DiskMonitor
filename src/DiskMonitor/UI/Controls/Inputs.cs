@@ -366,6 +366,9 @@ internal sealed class DropDown : InteractiveKitControl
                 _selected = clamped;
                 AccessibleName = Label;
                 Invalidate();
+
+                // The width follows the label.
+                Parent?.PerformLayout();
             }
         }
     }
@@ -379,6 +382,7 @@ internal sealed class DropDown : InteractiveKitControl
         _selected = Math.Clamp(selected, 0, Math.Max(0, _items.Count - 1));
         AccessibleName = Label;
         Invalidate();
+        Parent?.PerformLayout();
     }
 
     public int PreferredWidth(int minimum = 0) =>

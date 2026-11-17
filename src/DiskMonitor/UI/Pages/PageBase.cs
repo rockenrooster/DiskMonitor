@@ -210,6 +210,32 @@ internal abstract class PageBase : KitControl
     public int ViewportScroll { get; internal set; }
 
     protected void RequestLayout() => LayoutRequested?.Invoke(this, EventArgs.Empty);
+
+    private bool _forwardingLayout;
+
+    /// <summary>
+    /// A kit control whose size follows its content (a chip's count, a drop-down's label, a button's text)
+    /// asks its parent to lay out again with <c>Parent.PerformLayout()</c>, which names no affected control.
+    /// A page is arranged by the shell, which knows the viewport, so that request goes to the shell; without
+    /// it the control kept its old width until the page was shown again, and its text overflowed or was cut.
+    /// Layouts that arranging causes (a child's bounds or visibility) name the child and are not forwarded.
+    /// </summary>
+    protected override void OnLayout(LayoutEventArgs e)
+    {
+        base.OnLayout(e);
+        if (e.AffectedControl is null && !_forwardingLayout)
+        {
+            _forwardingLayout = true;
+            try
+            {
+                RequestLayout();
+            }
+            finally
+            {
+                _forwardingLayout = false;
+            }
+        }
+    }
 }
 
 /// <summary>A page that is not built yet: shows its title and a line saying so.</summary>

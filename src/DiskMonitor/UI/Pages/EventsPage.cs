@@ -150,6 +150,7 @@ internal sealed class EventsPage : PageBase
             };
         }
 
+        _drive.SetItems([Strings.DropAllDrives]);
         _show.SetItems([Strings.ShowAll, Strings.ShowUnread]);
         _range.SetItems([Strings.Range24, Strings.Range7, Strings.Range30, Strings.RangeAll], 3);
         _range.DefaultIndex = 3;

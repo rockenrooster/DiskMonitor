@@ -205,6 +205,13 @@ internal sealed partial class MainForm : Form, INavigator
             _boundsRestored = true;
             RestoreWindowBounds();
         }
+
+        // A change that arrived before the window had a handle could not start the refresh; without this
+        // the pending reasons stayed set and no later change refreshed the window until it was reopened.
+        if (Interlocked.CompareExchange(ref _pendingReasons, 0, 0) != 0)
+        {
+            _refreshTimer.Start();
+        }
     }
 
     protected override void OnResize(EventArgs e)

@@ -117,7 +117,15 @@ internal sealed class Chip : InteractiveKitControl
     public string? Count
     {
         get => _count;
-        set { _count = value; Invalidate(); Parent?.PerformLayout(); }
+        set
+        {
+            if (_count != value)
+            {
+                _count = value;
+                Invalidate();
+                Parent?.PerformLayout();
+            }
+        }
     }
 
     public Level? Severity
@@ -139,7 +147,16 @@ internal sealed class Chip : InteractiveKitControl
     public override string Text
     {
         get => base.Text;
-        set { base.Text = value; AccessibleName = value; Invalidate(); Parent?.PerformLayout(); }
+        set
+        {
+            if (base.Text != (value ?? ""))
+            {
+                base.Text = value;
+                AccessibleName = value;
+                Invalidate();
+                Parent?.PerformLayout();
+            }
+        }
     }
 
     public int PreferredWidth => Measure(Text, Count, Severity is not null || Icon is not null, On, Dpi);
