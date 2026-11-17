@@ -32,8 +32,11 @@ jobs:
         run: |
           # Hide every machine-wide .NET, so the executable can only use the runtime it carries
           # (the release plan requires it to run on a machine that never had .NET installed).
+          dotnet build-server shutdown | Out-Null
+          Get-Process dotnet, MSBuild, VBCSCompiler -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
           foreach ($dir in @("$env:ProgramFiles\dotnet", "${env:ProgramFiles(x86)}\dotnet", "$env:LOCALAPPDATA\Microsoft\dotnet")) {
-            if (Test-Path $dir) { Rename-Item $dir "$dir-hidden"; "hid $dir" }
+            if (Test-Path $dir) { Rename-Item -LiteralPath $dir -NewName ((Split-Path $dir -Leaf) + "-hidden"); "hid $dir" }
           }
           Remove-Item Env:DOTNET_ROOT -ErrorAction SilentlyContinue
           if (Get-Command dotnet -ErrorAction SilentlyContinue) { throw "dotnet is still reachable" }
