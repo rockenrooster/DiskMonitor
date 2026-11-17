@@ -56,7 +56,7 @@ Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\DiskMon
 [Run]
 Filename: "{app}\DiskMonitor.exe"; Parameters: "--register-startup"; Tasks: startup; Flags: runasoriginaluser runhidden waituntilterminated
 Filename: "{app}\DiskMonitor.exe"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent runasoriginaluser
-Filename: "{app}\DiskMonitor.exe"; Parameters: "--tray"; Flags: nowait skipifnotsilent runasoriginaluser
+Filename: "{app}\DiskMonitor.exe"; Flags: nowait skipifnotsilent runasoriginaluser
 
 [UninstallRun]
 Filename: "{app}\DiskMonitor.exe"; Parameters: "--exit"; Flags: runhidden; RunOnceId: "StopApp"
