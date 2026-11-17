@@ -32,6 +32,7 @@ internal sealed class CheckDiskPage : PageBase
     private string _hint = Strings.HintPrompt;
     private bool _registered;
     private bool _focusOffer;
+    private bool _ringAnimating;
 
     public CheckDiskPage(AppServices services, INavigator navigator) : base(services, navigator)
     {
@@ -113,6 +114,7 @@ internal sealed class CheckDiskPage : PageBase
         }
 
         bool running = Services.Chkdsk.IsRunning;
+        SetRingAnimating(running);
         _scanAll.Enabled = !running;
         _split.Enabled = !running && _selected is not null;
         string label = Strings.OfferAction(_selected ?? "");
@@ -202,6 +204,64 @@ internal sealed class CheckDiskPage : PageBase
         _hint = Elevation.IsElevated ? Strings.HintAdmin : registered ? Strings.HintTask : Strings.HintPrompt;
         _proactive.Refresh();
         _volumes.Invalidate();
+    }
+
+    /// <summary>
+    /// The scanning row's progress ring turns with the shared animation clock, but the table repaints only
+    /// when its data changes, so the ring stood still between progress updates. While a run is going its
+    /// ring area repaints on every animation tick.
+    /// </summary>
+    private void SetRingAnimating(bool on)
+    {
+        if (on == _ringAnimating)
+        {
+            return;
+        }
+
+        _ringAnimating = on;
+        if (on)
+        {
+            KitAnimator.Add(OnRingTick);
+        }
+        else
+        {
+            KitAnimator.Remove(OnRingTick);
+        }
+    }
+
+    private void OnRingTick(long now)
+    {
+        if (RunningRowRing() is { } ring)
+        {
+            _volumes.Invalidate(ring);
+        }
+    }
+
+    internal bool RingAnimating => _ringAnimating;
+
+    /// <summary>The running volume's ring in the volumes card, or null when no listed volume is running.</summary>
+    internal Rectangle? RunningRowRing()
+    {
+        string? running = Services.Chkdsk.RunningVolume;
+        int index = running is null ? -1 : _list.FindIndex(v => v.Letter.Equals(running, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+        {
+            return null;
+        }
+
+        float s = Sc;
+        float top = (TableTop + HeaderHeight + index * RowHeight) * s;
+        return Rectangle.FromLTRB((int)Math.Floor(458 * s), (int)Math.Floor(top), (int)Math.Ceiling(478 * s), (int)Math.Ceiling(top + RowHeight * s));
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            SetRingAnimating(false);
+        }
+
+        base.Dispose(disposing);
     }
 
     private void FocusOfferWhenReady()
@@ -669,7 +729,7 @@ internal sealed class CheckDiskPage : PageBase
             Font caption = F(FontRole.Caption);
             Font body = F(FontRole.Body);
             float cy = ProgressY * s;
-            string left = MainForm.TimeLeft(chkdsk.ProgressText) is { } span ? Format.Duration(span, estimate: true) : Strings.Estimating;
+            string left = chkdsk.TimeLeft is { } span ? Format.Duration(span, estimate: true) : Strings.Estimating;
             float valueWidth = Draw.TextWidth(left, body);
             float labelWidth = Draw.TextWidth(Strings.TimeLeft, caption);
             float groupX = Width - 16 * s - valueWidth - 8 * s - labelWidth;

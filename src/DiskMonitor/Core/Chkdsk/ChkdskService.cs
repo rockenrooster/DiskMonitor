@@ -78,6 +78,8 @@ internal sealed class ChkdskService
     private string _commandLine = "";
     private string _progressText = "";
     private int? _progressPercent;
+    private ChkdskProgress? _tracker;
+    private TimeSpan? _previewTimeLeft;
     private ChkdskResult? _lastResult;
 
     public ChkdskService(AppSettings settings, StateStore state, NotificationService notifier)
@@ -103,6 +105,10 @@ internal sealed class ChkdskService
     public string CommandLine => Read(() => _commandLine);
     public string ProgressText => Read(() => _progressText);
     public int? ProgressPercent => Read(() => _progressPercent);
+
+    /// <summary>Estimated time left of the current run (see <see cref="ChkdskProgress"/>); null while unknown.</summary>
+    public TimeSpan? TimeLeft => Read(() => _tracker?.TimeLeft(Clock.UtcNow) ?? _previewTimeLeft);
+
     public ChkdskResult? LastResult => Read(() => _lastResult);
 
     /// <summary>Output of the current or most recent run.</summary>
@@ -143,7 +149,7 @@ internal sealed class ChkdskService
     /// Shows a run in the UI without running anything: a run in progress when <paramref name="result"/>
     /// is null, otherwise a finished one. Used by the screen harness only.
     /// </summary>
-    internal void LoadPreview(string commandLine, string[] output, int? percent, ChkdskResult? result, string progressText = "", DateTime? startedUtc = null)
+    internal void LoadPreview(string commandLine, string[] output, int? percent, ChkdskResult? result, string progressText = "", DateTime? startedUtc = null, TimeSpan? timeLeft = null)
     {
         lock (_gate)
         {
@@ -151,6 +157,8 @@ internal sealed class ChkdskService
             _output.Clear();
             _output.AddRange(output);
             _progressPercent = percent;
+            _tracker = null;
+            _previewTimeLeft = timeLeft;
             _progressText = progressText;
             _startedUtc = startedUtc ?? Clock.UtcNow;
             _waitingForApproval = false;
@@ -192,6 +200,8 @@ internal sealed class ChkdskService
                 _commandLine = "";
                 _progressText = Strings.ScanStarting;
                 _progressPercent = null;
+                _tracker = new ChkdskProgress(mode);
+                _previewTimeLeft = null;
                 _output.Clear();
             }
 
@@ -263,6 +273,7 @@ internal sealed class ChkdskService
                 _waitingForApproval = false;
                 _progressText = "";
                 _progressPercent = null;
+                _tracker = null;
             }
 
             // The run's own result is reported directly; give the matching log record time to arrive.
@@ -301,9 +312,10 @@ internal sealed class ChkdskService
             lock (_gate)
             {
                 _waitingForApproval = true;
+                _progressText = Strings.ScanWaitingApproval;
             }
 
-            OnProgress(Strings.ScanWaitingApproval, null);
+            Changed?.Invoke();
             string arguments = $"{ChkdskHelper.HelperSwitch} --sid {sid} --volume {volume} --mode {mode}" + (moreResources ? " --perf" : "");
             launcher = Elevation.StartSelfElevated(arguments)
                 ?? throw new ChkdskException(Strings.ErrorDeclined, declined: true);
@@ -360,10 +372,11 @@ internal sealed class ChkdskService
                         AddLine(payload);
                         break;
                     case 'P':
+                        // "percent|text"; the percentage is worked out here from the text (ChkdskProgress).
                         int split = payload.IndexOf('|');
                         if (split >= 0)
                         {
-                            OnProgress(payload[(split + 1)..], int.TryParse(payload[..split], out int percent) ? percent : null);
+                            OnProgress(payload[(split + 1)..]);
                         }
 
                         break;
@@ -439,17 +452,26 @@ internal sealed class ChkdskService
             }
 
             _output.Add(line);
+            if (_tracker is not null)
+            {
+                _tracker.OnLine(line, Clock.UtcNow);
+                _progressPercent = _tracker.Percent ?? _progressPercent;
+            }
         }
 
         Changed?.Invoke();
     }
 
-    private void OnProgress(string text, int? percent)
+    private void OnProgress(string text)
     {
         lock (_gate)
         {
             _progressText = text;
-            _progressPercent = percent ?? _progressPercent;
+            if (_tracker is not null)
+            {
+                _tracker.OnProgress(text, Clock.UtcNow);
+                _progressPercent = _tracker.Percent ?? _progressPercent;
+            }
         }
 
         Changed?.Invoke();

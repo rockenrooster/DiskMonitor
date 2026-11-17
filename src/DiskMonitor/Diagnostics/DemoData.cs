@@ -238,7 +238,7 @@ internal static class DemoData
     /// <summary>A read-only scan of C: in progress, started four minutes ago (Check Disk screens).</summary>
     public static void ScanRunning(AppServices services) =>
         services.Chkdsk.LoadPreview("C: /scan", ScanOutputStart, 41, null,
-            "Progress: 512340 of 1249856 done; Stage: 41%; Total: 41%; ETA:   0:03:12", Clock.UtcNow - TimeSpan.FromMinutes(4));
+            "Progress: 512340 of 1249856 done; Stage: 41%; Total: 41%; ETA:   0:03:12", Clock.UtcNow - TimeSpan.FromMinutes(4), new TimeSpan(0, 3, 12));
 
     /// <summary>A finished run this session, with the outcome's output and result (Check Disk screens).</summary>
     public static void ScanFinished(AppServices services, Core.Chkdsk.ChkdskOutcome outcome)

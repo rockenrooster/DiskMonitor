@@ -4,6 +4,7 @@
 
 - Add upcoming user-visible changes here before tagging a release.
 - After *Download and install*, Disk Monitor opens its window again when the update is done, instead of starting only in the notification area.
+- On Check Disk, the progress ring beside the volume being scanned keeps turning; it stood still between progress updates.
 
 ## 2.0.0.2 - 2026-11-16
 

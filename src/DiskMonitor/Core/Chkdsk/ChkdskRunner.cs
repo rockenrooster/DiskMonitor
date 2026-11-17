@@ -1,8 +1,6 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
 namespace DiskMonitor.Core.Chkdsk;
@@ -76,7 +74,8 @@ internal static partial class ChkdskRunner
 
     /// <summary>
     /// Runs chkdsk to completion and returns its exit code. Permanent output lines go to
-    /// <paramref name="onLine"/>; the self-overwriting progress line goes to <paramref name="onProgress"/>.
+    /// <paramref name="onLine"/>; the self-overwriting progress line goes to <paramref name="onProgress"/>
+    /// (<see cref="ChkdskProgress"/> turns it into a percentage).
     /// </summary>
     public static int Run(
         string volume,
@@ -84,7 +83,7 @@ internal static partial class ChkdskRunner
         bool moreResources,
         Action<string> onStarted,
         Action<string> onLine,
-        Action<string, int?> onProgress,
+        Action<string> onProgress,
         CancellationToken cancellation)
     {
         string letter = NormalizeVolume(volume) ?? throw new ChkdskException(App.Strings.ErrorNotDriveLetter);
@@ -152,8 +151,14 @@ internal static partial class ChkdskRunner
         return process.ExitCode;
     }
 
-    // chkdsk rewrites its progress line with a bare carriage return; real lines end with a line feed.
-    private static void PumpOutput(StreamReader reader, Action<string> onLine, Action<string, int?> onProgress)
+    /// <summary>
+    /// Splits chkdsk's console stream. It rewrites its progress line by returning to the start of the line
+    /// with a bare carriage return, and clears it with a run of spaces. A line that ends in a line feed
+    /// stays on screen, including one written as text, carriage return, then carriage return and line feed
+    /// (how an online scan prints "3647232 file records processed."). That last form used to be taken for
+    /// progress, so the console showed a blank line instead of the count.
+    /// </summary>
+    internal static void PumpOutput(TextReader reader, Action<string> onLine, Action<string> onProgress)
     {
         char[] buffer = new char[2048];
         StringBuilder current = new();
@@ -164,6 +169,13 @@ internal static partial class ChkdskRunner
             for (int index = 0; index < read; index++)
             {
                 char c = buffer[index];
+                if (c == '\r')
+                {
+                    // A second return before anything else changes nothing on screen: wait for what follows.
+                    pendingReturn = true;
+                    continue;
+                }
+
                 if (pendingReturn)
                 {
                     pendingReturn = false;
@@ -176,17 +188,13 @@ internal static partial class ChkdskRunner
                     EmitProgress(current, onProgress);
                 }
 
-                switch (c)
+                if (c == '\n')
                 {
-                    case '\r':
-                        pendingReturn = true;
-                        break;
-                    case '\n':
-                        EmitLine(current, onLine, onProgress);
-                        break;
-                    default:
-                        current.Append(c);
-                        break;
+                    EmitLine(current, onLine, onProgress);
+                }
+                else
+                {
+                    current.Append(c);
                 }
             }
         }
@@ -197,13 +205,13 @@ internal static partial class ChkdskRunner
         }
     }
 
-    private static void EmitLine(StringBuilder current, Action<string> onLine, Action<string, int?> onProgress)
+    private static void EmitLine(StringBuilder current, Action<string> onLine, Action<string> onProgress)
     {
         string text = current.ToString().TrimEnd();
         current.Clear();
         if (IsProgress(text))
         {
-            onProgress(text.Trim(), ParsePercent(text));
+            onProgress(text.Trim());
         }
         else
         {
@@ -211,30 +219,20 @@ internal static partial class ChkdskRunner
         }
     }
 
-    private static void EmitProgress(StringBuilder current, Action<string, int?> onProgress)
+    private static void EmitProgress(StringBuilder current, Action<string> onProgress)
     {
         string text = current.ToString().Trim();
         current.Clear();
         if (text.Length > 0)
         {
-            onProgress(text, ParsePercent(text));
+            onProgress(text);
         }
     }
 
-    private static bool IsProgress(string text) =>
-        text.StartsWith("Progress:", StringComparison.OrdinalIgnoreCase) || PercentCompletePattern().IsMatch(text);
-
-    private static int? ParsePercent(string text)
+    private static bool IsProgress(string text)
     {
-        Match match = TotalPattern().Match(text);
-        if (!match.Success)
-        {
-            match = PercentCompletePattern().Match(text);
-        }
-
-        return match.Success && int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int percent)
-            ? Math.Clamp(percent, 0, 100)
-            : null;
+        string trimmed = text.TrimStart();
+        return trimmed.StartsWith("Progress:", StringComparison.OrdinalIgnoreCase) || ChkdskProgress.IsPercentComplete(trimmed);
     }
 
     private static bool CannotDismount(string letter)
@@ -270,10 +268,4 @@ internal static partial class ChkdskRunner
             return Encoding.UTF8;
         }
     }
-
-    [GeneratedRegex(@"Total:\s*(\d+)\s*%", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex TotalPattern();
-
-    [GeneratedRegex(@"(\d+) percent complete", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex PercentCompletePattern();
 }

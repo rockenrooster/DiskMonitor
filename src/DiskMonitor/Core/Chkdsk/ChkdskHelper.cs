@@ -127,7 +127,7 @@ internal static class ChkdskHelper
                     moreResources,
                     commandLine => Send("S|" + commandLine),
                     line => Send("O|" + line),
-                    (text, percent) => Send($"P|{percent?.ToString() ?? ""}|{text}"),
+                    text => Send("P||" + text),
                     cancel.Token);
                 Send("X|" + exitCode);
                 return 0;

@@ -235,7 +235,7 @@ internal sealed class ShellRoot : KitControl
             else
             {
                 _stripPercent = _services.Chkdsk.ProgressPercent;
-                TimeSpan? left = MainForm.TimeLeft(_services.Chkdsk.ProgressText);
+                TimeSpan? left = _services.Chkdsk.TimeLeft;
                 bool repair = !_services.Chkdsk.RunningMode.IsReadOnly();
                 _stripText = Strings.StripScanning(volume, _stripPercent, left, repair, narrow);
                 stop = !repair;

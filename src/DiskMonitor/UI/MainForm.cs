@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using DiskMonitor.App;
 using DiskMonitor.Core;
 using DiskMonitor.Core.Chkdsk;
@@ -482,21 +481,5 @@ internal sealed partial class MainForm : Form, INavigator
         }
 
         base.Dispose(disposing);
-    }
-
-    [GeneratedRegex(@"ETA:\s*(\d+):(\d\d):(\d\d)", RegexOptions.CultureInvariant)]
-    internal static partial Regex EtaPattern();
-
-    /// <summary>The time left from CHKDSK's progress line (<c>ETA: h:mm:ss</c>), or null when it has none.</summary>
-    internal static TimeSpan? TimeLeft(string progressText)
-    {
-        Match eta = EtaPattern().Match(progressText);
-        if (!eta.Success)
-        {
-            return null;
-        }
-
-        System.Globalization.CultureInfo invariant = System.Globalization.CultureInfo.InvariantCulture;
-        return new TimeSpan(int.Parse(eta.Groups[1].Value, invariant), int.Parse(eta.Groups[2].Value, invariant), int.Parse(eta.Groups[3].Value, invariant));
     }
 }
